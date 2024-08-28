@@ -1,0 +1,13 @@
+run:
+  timeout: 5m
+output:
+  formats: colored-line-number
+  print-issued-lines: true
+  print-linter-name: true
+linters:
+  enable:
+  - gofmt
+  - goimports
+  - unconvert
+  - misspell
+  - prealloc
