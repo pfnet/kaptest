@@ -1,3 +1,5 @@
+run:
+  modules-download-mode: readonly
 output:
   formats: colored-line-number
   print-issued-lines: true
