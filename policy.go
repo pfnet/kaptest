@@ -128,6 +128,45 @@ func convertv1beta1Variables(variables []v1.Variable) []cel.NamedExpressionAcces
 }
 
 
+// Evaluate policy's match conditions. This returns the result of match, which tells
+// whether the expressions were evaluated to 'match' and, and if not, which expression was
+// evaluated to 'false'
+// TODO: This is a hack to be able to check the name of failed expressions in matchCondition
+// This is because k/k's Validate func does not output the name of failed expressions.
+func (v *validator) EvalMatchCondition(p CelParams) (*matchconditions.MatchResult, error) {
+	if v.matcher == nil {
+		return nil, fmt.Errorf("match condition is not defined")
+	}
+	ctx := context.Background()
+	nameWithGVK, err := getNameWithGVK(p)
+	if err != nil {
+		return nil, err
+	}
+	groupVersionResource := schema.GroupVersionResource{
+		Group:    nameWithGVK.gvk.Group,
+		Version:  nameWithGVK.gvk.Version,
+		Resource: stubResource(),
+	}
+	versionedAttribute := &admission.VersionedAttributes{
+		Attributes: admission.NewAttributesRecord(
+			p.Object,
+			p.OldObject,
+			nameWithGVK.gvk,
+			nameWithGVK.namespace,
+			nameWithGVK.name,
+			groupVersionResource,
+			stubSubResource(), stubAdmissionOperation(),
+			stubOperationOptions(), stubIsDryRun(), p.UserInfo,
+		),
+		VersionedOldObject: p.OldObject,
+		VersionedObject:    p.Object,
+		VersionedKind:      nameWithGVK.gvk,
+		Dirty:              false,
+	}
+	matchResults := v.matcher.Match(ctx, versionedAttribute, p.ParamObj, stubAuthz())
+	return &matchResults, nil
+}
+
 // Evaluate policy's validations. ValidationResult contains the result of each validation
 // (Admit, Deny, Error) and the reason if it is evaluated as Deny or Error
 func (v *validator) Validate(p CelParams) (*validating.ValidateResult, error) {
