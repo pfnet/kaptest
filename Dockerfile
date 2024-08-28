@@ -28,7 +28,7 @@ FROM builder AS build
 RUN --mount=type=cache,target=/root/.cache/go-build \
     --mount=type=cache,target=/go/pkg/mod/ \
     --mount=type=bind,target=. \
-    CGO_ENABLED=0 GOOS=${GOOS:-linux} GOARCH=${GOARCH:-amd64} go build -a -o /${APP_NAME:-kaptest} ./main.go
+    CGO_ENABLED=0 GOOS=${GOOS:-linux} GOARCH=${GOARCH:-amd64} go build -a -o /${APP_NAME:-kaptest} ./internal/cmd/main.go
 
 
 FROM scratch AS export-binary
