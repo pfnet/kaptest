@@ -47,10 +47,10 @@ Examples are here: [examples/lib](./examples/lib)
 import "github.com/pfnet/kaptest"
 
 func TestSimplePolicy(t *testing.T) {
-	validator := validating.NewValidator(simplePolicy)
-	result, _ := validator.Validate(validating.CelParams{Object: simpleDeployment})
+	validator := kaptest.NewValidator(simplePolicy)
+	result, _ := validator.Validate(kaptest.CelParams{Object: simpleDeployment})
 	decision := result.Decisions[0]
-	expectedResult := k8sValidating.EvalDeny
+	expectedResult := validating.EvalDeny
 	if expectedResult != decision.Evaluation {
 		t.Errorf("decision evaluation is expected to be %s, but got %s", expectedResult, decision.Evaluation)
 	}
