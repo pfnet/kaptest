@@ -1,4 +1,4 @@
-package validating
+package kaptest
 
 import (
 	"testing"
@@ -11,7 +11,6 @@ import (
 	"k8s.io/apiserver/pkg/admission/plugin/policy/validating"
 	"k8s.io/apiserver/pkg/authentication/user"
 )
-
 
 var failurePolicyFail = v1.Fail
 var simplePolicyMessage = "object.spec.replicas should less or equal to 5"
@@ -46,7 +45,6 @@ var simplePolicy = v1.ValidatingAdmissionPolicy{
 	},
 }
 
-
 var simpleDeployment = &appsv1.Deployment{
 	ObjectMeta: metav1.ObjectMeta{
 		Name:      "simpleDeployment",
@@ -74,7 +72,6 @@ var simpleDeployment = &appsv1.Deployment{
 		},
 	},
 }
-
 
 func deploymentWithReplicas(deployment *appsv1.Deployment, replicas int) *appsv1.Deployment {
 	replicasInt32 := int32(replicas)

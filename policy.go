@@ -1,4 +1,4 @@
-package validating
+package kaptest
 
 import (
 	"context"
@@ -126,7 +126,6 @@ func convertv1beta1Variables(variables []v1.Variable) []cel.NamedExpressionAcces
 	}
 	return namedExpressions
 }
-
 
 // Evaluate policy's match conditions. This returns the result of match, which tells
 // whether the expressions were evaluated to 'match' and, and if not, which expression was

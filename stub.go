@@ -1,4 +1,4 @@
-package validating
+package kaptest
 
 import (
 	"context"
