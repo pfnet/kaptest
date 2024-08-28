@@ -1,9 +1,16 @@
 package validating
 
 import (
+	"context"
+	"fmt"
+
 	v1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/apiserver/pkg/admission/plugin/cel"
 	"k8s.io/apiserver/pkg/authentication/user"
 
@@ -118,4 +125,97 @@ func convertv1beta1Variables(variables []v1.Variable) []cel.NamedExpressionAcces
 		namedExpressions[i] = &validating.Variable{Name: variable.Name, Expression: variable.Expression}
 	}
 	return namedExpressions
+}
+
+
+// Evaluate policy's validations. ValidationResult contains the result of each validation
+// (Admit, Deny, Error) and the reason if it is evaluated as Deny or Error
+func (v *validator) Validate(p CelParams) (*validating.ValidateResult, error) {
+	ctx := context.Background()
+	nameWithGVK, err := getNameWithGVK(p)
+	if err != nil {
+		return nil, err
+	}
+	groupVersionResource := schema.GroupVersionResource{
+		Group:    nameWithGVK.gvk.Group,
+		Version:  nameWithGVK.gvk.Version,
+		Resource: stubResource(),
+	}
+	matchedResource := groupVersionResource
+	versionedAttribute := &admission.VersionedAttributes{
+		Attributes: admission.NewAttributesRecord(
+			p.Object,
+			p.OldObject,
+			nameWithGVK.gvk,
+			nameWithGVK.namespace,
+			nameWithGVK.name,
+			groupVersionResource,
+			stubSubResource(), stubAdmissionOperation(),
+			stubOperationOptions(), stubIsDryRun(), p.UserInfo,
+		),
+		VersionedOldObject: p.OldObject,
+		VersionedObject:    p.Object,
+		VersionedKind:      nameWithGVK.gvk,
+		Dirty:              false,
+	}
+	result := v.validator.Validate(
+		ctx,
+		matchedResource,
+		versionedAttribute,
+		p.ParamObj,
+		p.NamespaceObj,
+		stubRuntimeCELCostBudget(),
+		stubAuthz(),
+	)
+	correctResult := correctValidateResult(result)
+	return &correctResult, nil
+}
+
+type nameWithGVK struct {
+	namespace string
+	name      string
+	gvk       schema.GroupVersionKind
+}
+
+func getNameWithGVK(p CelParams) (*nameWithGVK, error) {
+	if p.Object == nil && p.OldObject == nil {
+		return nil, fmt.Errorf("object or oldObject must be set")
+	}
+	obj := p.Object
+	if obj == nil {
+		obj = p.OldObject
+	}
+	namer := meta.NewAccessor()
+	name, err := namer.Name(obj)
+	if err != nil {
+		return nil, fmt.Errorf("name is not valid: %v", err)
+	}
+	namespaceName, err := namer.Namespace(obj)
+	if err != nil {
+		return nil, fmt.Errorf("namespace is not valid: %v", err)
+	}
+	gvk := obj.GetObjectKind().GroupVersionKind()
+	return &nameWithGVK{
+		name:      name,
+		namespace: namespaceName,
+		gvk:       gvk,
+	}, nil
+}
+
+// Workaround to handle the case where the evaluation is not set
+// TODO remove this workaround after https://github.com/kubernetes/kubernetes/pull/126867 is released
+func correctValidateResult(result validating.ValidateResult) validating.ValidateResult {
+	for i, decision := range result.Decisions {
+		if decision.Evaluation == "" {
+			result.Decisions[i] = validating.PolicyDecision{
+				Action:     decision.Action,
+				Evaluation: validating.EvalDeny,
+				Message:    decision.Message,
+				Reason:     metav1.StatusReason(decision.Message),
+				Elapsed:    decision.Elapsed,
+			}
+			decision.Evaluation = validating.EvalDeny
+		}
+	}
+	return result
 }
