@@ -12,9 +12,7 @@ Examples are here: [examples/cli](./examples/cli)
 
 ### Installation
 
-```bash
-wget ...
-```
+Install from [Releases](https://github.com/pfnet/kaptest/releases)
 
 ### Running
 
@@ -46,7 +44,7 @@ Run the tool with the test suites.
 Examples are here: [examples/lib](./examples/lib)
 
 ```go
-import "..."
+import "github.com/pfnet/kaptest"
 
 func TestSimplePolicy(t *testing.T) {
 	validator := validating.NewValidator(simplePolicy)
