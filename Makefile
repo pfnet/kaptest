@@ -14,4 +14,4 @@ build:
 
 .PHONY: cli-test
 cli-test:
-	go run internal/cmd/main.go --verbose examples/cli/complicated/manifest.yaml
+	go run internal/cmd/main.go --verbose run examples/cli/complicated/manifest.yaml
