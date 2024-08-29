@@ -17,39 +17,39 @@ func RunInit(cmd *cobra.Command, args []string, cfg CmdConfig) error {
 	}
 	dirInfo, err := os.Lstat(dir)
 	if err != nil {
-		panic(err)
+		return fmt.Errorf("failed to get file info: %w", err)
 	}
 	file, err := os.Stat(dir + KAPTEST_DIR)
 	if err != nil {
 		dirMode := dirInfo.Mode()
 		perm := dirMode & os.ModePerm
 		if err := os.Mkdir(dir+KAPTEST_DIR, perm); err != nil {
-			panic(fmt.Errorf("failed to make dir: %v", err))
+			return fmt.Errorf("failed to make dir: %w", err)
 		}
 	} else if !file.IsDir() {
-		panic(fmt.Errorf("file %s already exists", dir+KAPTEST_DIR))
+		return fmt.Errorf("file %s already exists", dir+KAPTEST_DIR)
 	}
 	if file, err := os.Stat(dir + KAPTEST_DIR); err != nil || !file.IsDir() {
 		dirMode := dirInfo.Mode()
 		perm := dirMode & os.ModePerm
 		if err := os.Mkdir(dir+KAPTEST_DIR, perm); err != nil {
-			panic(fmt.Errorf("failed to make dir: %v", err))
+			return fmt.Errorf("failed to make dir: %w", err)
 		}
 	}
 
 	f, err := os.Create(dir + KAPTEST_DIR + "kaptest.yaml")
 	if err != nil {
-		panic(fmt.Errorf("failed to create kaptest.yaml: %v", err))
+		return fmt.Errorf("failed to create kaptest.yaml: %w", err)
 	}
 	defer f.Close()
 
 	if _, err := f.WriteString(defaultManifest); err != nil {
-		panic(fmt.Errorf("failed to write in kaptest.yaml: %v", err))
+		return fmt.Errorf("failed to write in kaptest.yaml: %w", err)
 	}
 
 	_, err = os.Create(dir + KAPTEST_DIR + "resources.yaml")
 	if err != nil {
-		panic(fmt.Errorf("failed to create resources.yaml: %v", err))
+		return fmt.Errorf("failed to create resources.yaml: %w", err)
 	}
 	return nil
 }
