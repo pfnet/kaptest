@@ -126,7 +126,7 @@ func usage() {
 	fmt.Printf(`Usage
   init <dir> : setup kaptest in <dir>
   run <file> : run test
-	`)
+`)
 }
 
 func initLog(flags flags) {
