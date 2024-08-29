@@ -10,7 +10,7 @@ import (
 const KAPTEST_DIR = ".kaptest/"
 
 var defaultManifest = `validatingAdmissionPolicies:
-  - # policy.yaml
+  -  # policy.yaml
 testSuites:
   - policy: # policy-name
     tests:
@@ -21,7 +21,8 @@ testSuites:
       - object:
           kind: Deployment
           name: bad-deployment
-        expect: deny`
+        expect: deny
+`
 
 func execInit(_ flags) {
 	dir := flag.Arg(1)
@@ -39,8 +40,7 @@ func execInit(_ flags) {
 		if err := os.Mkdir(dir+KAPTEST_DIR, perm); err != nil {
 			panic(fmt.Errorf("failed to make dir: %v", err))
 		}
-	}
-	if !file.IsDir() {
+	} else if !file.IsDir() {
 		panic(fmt.Errorf("file %s already exists", dir+KAPTEST_DIR))
 	}
 	if file, err := os.Stat(dir + KAPTEST_DIR); err != nil || !file.IsDir() {
@@ -53,7 +53,7 @@ func execInit(_ flags) {
 
 	f, err := os.Create(dir + KAPTEST_DIR + "kaptest.yaml")
 	if err != nil {
-		panic(err)
+		panic(fmt.Errorf("failed to create kaptest.yaml: %v", err))
 	}
 	defer f.Close()
 
