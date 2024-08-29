@@ -1,7 +1,7 @@
 validatingAdmissionPolicies:
   - ../policy.yaml
 resources:
-	- resources.yaml
+  - resources.yaml
 testSuites:
   - policy: simple-policy
     tests:
