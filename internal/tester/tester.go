@@ -3,12 +3,12 @@ package tester
 import (
 	"errors"
 	"fmt"
+	"kaptest"
 	"log/slog"
 	"os"
 	"path/filepath"
 
-	"kaptest"
-
+	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v2"
 	v1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -21,9 +21,10 @@ var (
 )
 
 // Run runs the test cases defined in the manifest file.
-func Run(cfg CliConfig) error {
+func Run(cmd *cobra.Command, args []string, cfg CmdConfig) error {
 	// Read manifest yaml
-	manifestFile, err := os.ReadFile(cfg.ManifestPath)
+	manifestPath := args[0]
+	manifestFile, err := os.ReadFile(manifestPath)
 	if err != nil {
 		return fmt.Errorf("read manifest YAML: %w", err)
 	}
@@ -34,7 +35,7 @@ func Run(cfg CliConfig) error {
 	}
 
 	// Change directory to the base directory of manifest
-	if err := os.Chdir(filepath.Dir(cfg.ManifestPath)); err != nil {
+	if err := os.Chdir(filepath.Dir(manifestPath)); err != nil {
 		return fmt.Errorf("change directory: %w", err)
 	}
 

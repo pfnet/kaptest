@@ -14,4 +14,4 @@ build:
 
 .PHONY: cli-test
 cli-test:
-	go run internal/cmd/main.go --verbose run examples/cli/complicated/.kaptest/kaptest.yaml
+	go run internal/main.go --verbose run examples/cli/complicated/.kaptest/kaptest.yaml
