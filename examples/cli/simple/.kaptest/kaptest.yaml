@@ -1,5 +1,5 @@
 validatingAdmissionPolicies:
-  - policy.yaml
+  - ../policy.yaml
 resources:
   - resources.yaml
 testSuites:

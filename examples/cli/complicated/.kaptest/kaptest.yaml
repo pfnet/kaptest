@@ -1,6 +1,6 @@
 validatingAdmissionPolicies:
-  - policy1.yaml
-  - policy2.yaml
+  - ../policy1.yaml
+  - ../policy2.yaml
 resources:
   - resources1.yaml
   - resources2.yaml
