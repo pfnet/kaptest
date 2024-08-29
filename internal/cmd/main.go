@@ -54,6 +54,8 @@ const KAPTEST_DIR = ".kaptest/"
 
 var defaultManifest = `validatingAdmissionPolicies:
   -  # policy.yaml
+resources:
+	- resources.yaml
 testSuites:
   - policy: # policy-name
     tests:
@@ -101,6 +103,11 @@ func execInit(_ flags) {
 	defer f.Close()
 
 	f.WriteString(defaultManifest)
+
+	_, err = os.Create(dir + KAPTEST_DIR + "resources.yaml")
+	if err != nil {
+		panic(fmt.Errorf("failed to create resources.yaml: %v", err))
+	}
 }
 
 func execRun(flags flags) {
