@@ -24,13 +24,36 @@ import (
 	"os"
 )
 
+type flags struct {
+	Debug   bool
+	Verbose bool
+}
+
 // Root function to execute commands
 func main() {
-	cfg := tester.CliConfig{}
+	cfg := flags{}
 	flag.BoolVar(&cfg.Debug, "debug", false, "Debug output")
 	flag.BoolVar(&cfg.Verbose, "verbose", false, "Verbose output")
 	flag.Parse()
-	cfg.ManifestPath = flag.Arg(0)
+	command := flag.Arg(0)
+
+	switch command {
+	case "run":
+		execRun(cfg)
+	case "init":
+		execInit(cfg)
+	default:
+		usage()
+		os.Exit(1)
+	}
+}
+
+func execRun(flags flags) {
+	cfg := tester.CliConfig{
+		Debug:   flags.Debug,
+		Verbose: flags.Verbose,
+	}
+	cfg.ManifestPath = flag.Arg(1)
 	if cfg.ManifestPath == "" {
 		usage()
 		return
@@ -46,8 +69,15 @@ func main() {
 	}
 }
 
+func execInit(flags flags) {
+
+}
+
 func usage() {
-	fmt.Println("Usage: file <file>")
+	fmt.Printf(`Usage
+  run <file> : run test
+  init <dir> : create kaptest manifest in <dir>
+	`)
 }
 
 func initLog(cfg tester.CliConfig) {
