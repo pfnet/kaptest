@@ -102,7 +102,9 @@ func execInit(_ flags) {
 	}
 	defer f.Close()
 
-	f.WriteString(defaultManifest)
+	if _, err := f.WriteString(defaultManifest); err != nil {
+		panic(fmt.Errorf("failed to write in kaptest.yaml: %v", err))
+	}
 
 	_, err = os.Create(dir + KAPTEST_DIR + "resources.yaml")
 	if err != nil {
