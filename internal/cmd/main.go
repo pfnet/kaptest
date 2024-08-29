@@ -53,7 +53,7 @@ func main() {
 const KAPTEST_DIR = ".kaptest/"
 
 var defaultManifest = `validatingAdmissionPolicies:
-  -  # policy.yaml
+  - # policy.yaml
 resources:
 	- resources.yaml
 testSuites:
