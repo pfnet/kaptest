@@ -16,12 +16,20 @@ Install from [Releases](https://github.com/pfnet/kaptest/releases)
 
 ### Running
 
+Move to a directory to create `.kaptest/` directory and run `kaptest init`.
+Then `kaptest.yaml` and `resources.yaml` will be created in `.kaptest/`
+
+```bash
+$ cd /path/to/dir
+$ kaptest init .
+```
+
 Define test suites in a YAML file.
 
 ```yaml
-# manifest.yaml
+# .kaptest/kaptest.yaml
 validatingAdmissionPolicies:
-  - policy.yaml
+  - ../policy.yaml
 resources:
   - resources.yaml
 testSuites:
@@ -36,7 +44,7 @@ testSuites:
 Run the tool with the test suites.
 
 ```bash
-./kaptest ./manifest.yaml
+kaptest run .kaptest/kaptest.yaml
 ```
 
 ## Library Usage
@@ -60,4 +68,3 @@ func TestSimplePolicy(t *testing.T) {
 ## Copyright
 
 Copyright (c) 2024 Preferred Networks. See LICENSE for details.
-
