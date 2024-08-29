@@ -8,11 +8,11 @@ import (
 )
 
 type TestManifests struct {
-	ValidatingAdmissionPolicies []string               `yaml:"validatingAdmissionPolicies"`
-	Resources                   []string               `yaml:"resources"`
-	Params                      []string               `yaml:"params"`
-	Namespaces                  []string               `yaml:"namespaces"`
-	TestSuites                  []TestsForSinglePolicy `yaml:"testSuites"`
+	ValidatingAdmissionPolicies []string               `yaml:"validatingAdmissionPolicies,omitempty"`
+	Resources                   []string               `yaml:"resources,omitempty"`
+	Params                      []string               `yaml:"params,omitempty"`
+	Namespaces                  []string               `yaml:"namespaces,omitempty"`
+	TestSuites                  []TestsForSinglePolicy `yaml:"testSuites,omitempty"`
 }
 
 type TestsForSinglePolicy struct {
@@ -21,23 +21,23 @@ type TestsForSinglePolicy struct {
 }
 
 type TestCase struct {
-	Object    NameWithGVK                         `yaml:"object"`
-	OldObject NameWithGVK                         `yaml:"oldObject"`
-	Param     NamespacedName                      `yaml:"param"`
-	Expect    validating.PolicyDecisionEvaluation `yaml:"expect"`
-	UserInfo  UserInfo                            `yaml:"userInfo"`
+	Object    NameWithGVK                         `yaml:"object,omitempty"`
+	OldObject NameWithGVK                         `yaml:"oldObject,omitempty"`
+	Param     NamespacedName                      `yaml:"param,omitempty"`
+	Expect    validating.PolicyDecisionEvaluation `yaml:"expect,omitempty"`
+	UserInfo  UserInfo                            `yaml:"userInfo,omitempty"`
 	// TODO: Support message test
 	// Message   string                              `yaml:"message"`
 }
 
 type GVK struct {
-	Group   string `yaml:"group"`
-	Version string `yaml:"version"`
+	Group   string `yaml:"group,omitempty"`
+	Version string `yaml:"version,omitempty"`
 	Kind    string `yaml:"kind"`
 }
 
 type NamespacedName struct {
-	Namespace string `yaml:"namespace"`
+	Namespace string `yaml:"namespace,omitempty"`
 	Name      string `yaml:"name"`
 }
 

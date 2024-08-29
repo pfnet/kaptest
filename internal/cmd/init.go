@@ -8,7 +8,7 @@ import (
 
 func newInitCmd(cfg tester.CmdConfig) *cobra.Command {
 	return &cobra.Command{
-		Use:   "init [dir]",
+		Use:   "init [admission policy filepath]",
 		Short: "Initialize the test directory",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return tester.RunInit(cmd, args, cfg)
