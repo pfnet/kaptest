@@ -55,7 +55,7 @@ const KAPTEST_DIR = ".kaptest/"
 var defaultManifest = `validatingAdmissionPolicies:
   - # policy.yaml
 resources:
-	- resources.yaml
+  - resources.yaml
 testSuites:
   - policy: # policy-name
     tests:
