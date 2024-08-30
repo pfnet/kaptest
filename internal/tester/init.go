@@ -8,7 +8,6 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v2"
 	v1 "k8s.io/api/admissionregistration/v1"
 	kyaml "k8s.io/apimachinery/pkg/util/yaml"
@@ -20,11 +19,7 @@ const (
 	resourceManifestName = "resources.yaml"
 )
 
-func RunInit(cmd *cobra.Command, args []string, cfg CmdConfig) error {
-	if len(args) == 0 {
-		return fmt.Errorf("filepath is required")
-	}
-	targetFilePath := args[0]
+func RunInit(cfg CmdConfig, targetFilePath string) error {
 	if err := createTestDir(targetFilePath); err != nil {
 		return fmt.Errorf("create test directory: %w", err)
 	}

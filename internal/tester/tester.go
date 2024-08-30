@@ -8,7 +8,6 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v2"
 	v1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -21,9 +20,8 @@ var (
 )
 
 // Run runs the test cases defined in the manifest file.
-func Run(cmd *cobra.Command, args []string, cfg CmdConfig) error {
+func Run(cfg CmdConfig, manifestPath string) error {
 	// Read manifest yaml
-	manifestPath := args[0]
 	manifestFile, err := os.ReadFile(manifestPath)
 	if err != nil {
 		return fmt.Errorf("read manifest YAML: %w", err)
