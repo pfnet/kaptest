@@ -167,7 +167,7 @@ func (v *validator) Validate(p ValidationParams) (*validating.ValidateResult, er
 		p.ParamObj,
 		p.NamespaceObj,
 		celconfig.RuntimeCELCostBudget,
-		// Inject stub authorizer since this testing tool just focuses on the validation logic.
+		// Inject stub authorizer since this testing tool focuses on the validation logic.
 		stubAuthz(),
 	)
 	correctResult := correctValidateResult(result)
@@ -180,9 +180,10 @@ func makeVersionedAttribute(p ValidationParams) (*admission.VersionedAttributes,
 		return nil, schema.GroupVersionResource{}
 	}
 	groupVersionResource := schema.GroupVersionResource{
-		Group:    nameWithGVK.gvk.Group,
-		Version:  nameWithGVK.gvk.Version,
-		Resource: stubResource(),
+		Group:   nameWithGVK.gvk.Group,
+		Version: nameWithGVK.gvk.Version,
+		// NOTE: GVR.Resource is not populated
+		Resource: "",
 	}
 	return &admission.VersionedAttributes{
 		Attributes: admission.NewAttributesRecord(
@@ -192,11 +193,13 @@ func makeVersionedAttribute(p ValidationParams) (*admission.VersionedAttributes,
 			nameWithGVK.namespace,
 			nameWithGVK.name,
 			groupVersionResource,
-			// NOTE: Validation of subResource is not supported for now.
-			stubSubResource(),
+			// NOTE: subResource is not populated
+			"", // subResource
 			p.Operation(),
-			stubOperationOptions(),
-			stubIsDryRun(),
+			// NOTE: operationOptions is not populated
+			nil, // operationOptions
+			// NOTE: dryRun is always true
+			true, // dryRun
 			p.UserInfo,
 		),
 		VersionedOldObject: p.OldObject,
