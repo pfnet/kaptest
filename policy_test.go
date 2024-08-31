@@ -97,7 +97,7 @@ func TestSimplePolicy(t *testing.T) {
 
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := validator.Validate(CelParams{Object: tt.object})
+			result, err := validator.Validate(ValidationParams{Object: tt.object})
 			if err != nil {
 				t.Errorf("validate finished with error: %v", err)
 			}
@@ -140,7 +140,7 @@ func TestPolicyWithVariable(t *testing.T) {
 
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := tt.validator.Validate(CelParams{Object: tt.object})
+			result, err := tt.validator.Validate(ValidationParams{Object: tt.object})
 			if err != nil {
 				t.Errorf("validate finished with error: %v", err)
 			}
@@ -209,7 +209,7 @@ func TestMatchCondition(t *testing.T) {
 
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			matchResult, err := validator.EvalMatchCondition(CelParams{Object: tt.object})
+			matchResult, err := validator.EvalMatchCondition(ValidationParams{Object: tt.object})
 			if err != nil {
 				t.Errorf("eval match condition failed with error: %v", err)
 			}
@@ -219,7 +219,7 @@ func TestMatchCondition(t *testing.T) {
 			if !tt.matches && tt.failedConditionName != matchResult.FailedConditionName {
 				t.Errorf("match failed condition name is expected to be %s, but got %s", tt.failedConditionName, matchResult.FailedConditionName)
 			}
-			result, err := validator.Validate(CelParams{Object: tt.object})
+			result, err := validator.Validate(ValidationParams{Object: tt.object})
 			if err != nil {
 				t.Errorf("validate finished with error: %v", err)
 			}
@@ -271,7 +271,7 @@ func TestPolicyWithParam(t *testing.T) {
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := validator.Validate(CelParams{Object: tt.object, ParamObj: conf})
+			result, err := validator.Validate(ValidationParams{Object: tt.object, ParamObj: conf})
 			if err != nil {
 				t.Errorf("validate finished with error: %v", err)
 			}
@@ -306,7 +306,7 @@ func TestPolicyWithUserInfo(t *testing.T) {
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := validator.Validate(CelParams{
+			result, err := validator.Validate(ValidationParams{
 				Object: simpleDeployment, UserInfo: &user.DefaultInfo{Groups: []string{tt.group}},
 			})
 			if err != nil {
@@ -343,7 +343,7 @@ func TestDeletionCase(t *testing.T) {
 
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := validator.Validate(CelParams{OldObject: tt.oldObject})
+			result, err := validator.Validate(ValidationParams{OldObject: tt.oldObject})
 			if err != nil {
 				t.Errorf("validate finished with error: %v", err)
 			}

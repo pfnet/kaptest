@@ -129,7 +129,7 @@ func runEach(cfg CmdConfig, manifestPath string) testResultSummary {
 	return summarize(manifestPath, results, cfg.Verbose)
 }
 
-func newValidationParams(vap *v1.ValidatingAdmissionPolicy, tc TestCase, loader *ResourceLoader) (kaptest.CelParams, []error) {
+func newValidationParams(vap *v1.ValidatingAdmissionPolicy, tc TestCase, loader *ResourceLoader) (kaptest.ValidationParams, []error) {
 	var errs []error
 	var err error
 	var obj, oldObj *unstructured.Unstructured
@@ -160,10 +160,10 @@ func newValidationParams(vap *v1.ValidatingAdmissionPolicy, tc TestCase, loader 
 	userInfo := NewK8sUserInfo(tc.UserInfo)
 
 	if len(errs) > 0 {
-		return kaptest.CelParams{}, errs
+		return kaptest.ValidationParams{}, errs
 	}
 
-	return kaptest.CelParams{
+	return kaptest.ValidationParams{
 		Object:       obj,
 		OldObject:    oldObj,
 		ParamObj:     paramObj,
