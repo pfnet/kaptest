@@ -11,7 +11,9 @@ import (
 	"gopkg.in/yaml.v2"
 	v1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
@@ -41,8 +43,6 @@ func Run(cfg CmdConfig, manifestPath string) error {
 	loader := NewResourceLoader()
 	loader.LoadVaps(manifests.ValidatingAdmissionPolicies)
 	loader.LoadResources(manifests.Resources)
-	loader.LoadParams(manifests.Params)
-	loader.LoadNamespaces(manifests.Namespaces)
 
 	results := []TestResult{}
 
@@ -90,60 +90,28 @@ func Run(cfg CmdConfig, manifestPath string) error {
 
 func newValidationParams(vap *v1.ValidatingAdmissionPolicy, tc TestCase, loader *ResourceLoader) (kaptest.CelParams, []error) {
 	var errs []error
-	var object, oldObject *unstructured.Unstructured
+	var err error
+	var obj, oldObj *unstructured.Unstructured
 	if !tc.Object.IsValid() && !tc.OldObject.IsValid() {
 		errs = append(errs, fmt.Errorf("object or oldObject must be given and valid"))
 	} else {
-		for k, v := range loader.Resources {
-			if k.Match(tc.Object) {
-				if object != nil {
-					errs = append(errs, fmt.Errorf("multiple target resource found for object: %+v", tc.Object))
-					break
-				}
-				object = v
-			}
-			if k.Match(tc.OldObject) {
-				if oldObject != nil {
-					errs = append(errs, fmt.Errorf("multiple target resource found for oldObject: %+v", tc.OldObject))
-					break
-				}
-				oldObject = v
-			}
+		// TODO: Extract load resource logic to ResourceLoader
+		if obj, err = loader.GetResource(tc.Object); err != nil {
+			errs = append(errs, fmt.Errorf("get object: %w", err))
+		}
+		if oldObj, err = loader.GetResource(tc.OldObject); err != nil {
+			errs = append(errs, fmt.Errorf("get oldObject: %w", err))
 		}
 	}
 
 	var paramObj *unstructured.Unstructured
-	if vap.Spec.ParamKind != nil {
-		if tc.Param.Name != "" {
-			for k, v := range loader.Params {
-				paramNGVK := NewNameWithGVK(schema.FromAPIVersionAndKind(vap.Spec.ParamKind.APIVersion, vap.Spec.ParamKind.Kind), tc.Param)
-				if k.Match(paramNGVK) {
-					if paramObj != nil {
-						errs = append(errs, fmt.Errorf("multiple target resource found for param: %+v", tc.Param))
-					}
-					paramObj = v
-				}
-			}
-			if paramObj == nil {
-				errs = append(errs, fmt.Errorf("param not found"))
-			}
-		}
+	if paramObj, err = getParamObj(loader, vap, tc.Param); err != nil {
+		errs = append(errs, fmt.Errorf("get param: %w", err))
 	}
 
 	var namespaceObj *corev1.Namespace
-	if object == nil && oldObject == nil {
-		errs = append(errs, fmt.Errorf("neither object nor oldObject found"))
-	} else {
-		namespaceName, err := getNamespaceName(object, oldObject)
-		if err != nil {
-			errs = append(errs, fmt.Errorf("extract namespace: %w", err))
-		} else if namespaceName != "" {
-			var ok bool
-			namespaceObj, ok = loader.Namespaces[namespaceName]
-			if !ok {
-				errs = append(errs, fmt.Errorf("namespace not found"))
-			}
-		}
+	if namespaceObj, err = getNamespaceObj(loader, obj, oldObj); err != nil {
+		errs = append(errs, fmt.Errorf("get namespace: %w", err))
 	}
 
 	userInfo := NewUserInfo(tc.UserInfo)
@@ -151,13 +119,66 @@ func newValidationParams(vap *v1.ValidatingAdmissionPolicy, tc TestCase, loader 
 	if len(errs) > 0 {
 		return kaptest.CelParams{}, errs
 	}
+
 	return kaptest.CelParams{
-		Object:       object,
-		OldObject:    oldObject,
+		Object:       obj,
+		OldObject:    oldObj,
 		ParamObj:     paramObj,
 		NamespaceObj: namespaceObj,
 		UserInfo:     &userInfo,
 	}, nil
+}
+
+func getParamObj(loader *ResourceLoader, vap *v1.ValidatingAdmissionPolicy, param NamespacedName) (*unstructured.Unstructured, error) {
+	if vap.Spec.ParamKind == nil {
+		return nil, nil
+	}
+	if param.Name == "" {
+		return nil, fmt.Errorf("param name is empty")
+	}
+
+	paramNGVK := NewNameWithGVK(schema.FromAPIVersionAndKind(vap.Spec.ParamKind.APIVersion, vap.Spec.ParamKind.Kind), param)
+	paramObj, err := loader.GetResource(paramNGVK)
+	if err != nil {
+		return nil, fmt.Errorf("get param: %w", err)
+	}
+	if paramObj == nil {
+		return nil, fmt.Errorf("param not found")
+	}
+	return paramObj, nil
+}
+
+func getNamespaceObj(loader *ResourceLoader, obj, oldObj *unstructured.Unstructured) (*corev1.Namespace, error) {
+	if obj == nil && oldObj == nil {
+		return nil, fmt.Errorf("neither object nor oldObject found")
+	}
+	namespaceName, err := getNamespaceName(obj, oldObj)
+	if err != nil {
+		return nil, fmt.Errorf("extract namespace: %w", err)
+	}
+	if namespaceName == "" {
+		return nil, nil
+	}
+
+	namespaceNGVK := NewNameWithGVK(schema.FromAPIVersionAndKind("v1", "Namespace"), NamespacedName{Name: namespaceName})
+	uNamespaceObj, err := loader.GetResource(namespaceNGVK)
+	if err != nil {
+		return nil, fmt.Errorf("get namespace: %w", err)
+	}
+	if uNamespaceObj == nil {
+		slog.Info("use default namespace with no labels and annotations", "namespace", namespaceName)
+		return &corev1.Namespace{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: namespaceName,
+			},
+		}, nil
+	}
+
+	var namespaceObj corev1.Namespace
+	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(uNamespaceObj.Object, &namespaceObj); err != nil {
+		return nil, fmt.Errorf("convert to namespace: %w", err)
+	}
+	return &namespaceObj, nil
 }
 
 func getNamespaceName(obj, oldObj *unstructured.Unstructured) (string, error) {
