@@ -21,37 +21,71 @@ var (
 	ErrTestFail = errors.New("test failed")
 )
 
+func Run(cfg CmdConfig, pathList []string) error {
+	var passCount, failCount int
+	for _, path := range pathList {
+		r := runEach(cfg, path)
+		fmt.Println(r.String(false))
+		passCount += r.pass
+		failCount += r.fail
+	}
+
+	if len(pathList) > 1 {
+		fmt.Println("\n--------------------------------------------------")
+		fmt.Printf("Total: %d, Pass: %d, Fail: %d\n", passCount+failCount, passCount, failCount)
+	}
+
+	if failCount > 0 {
+		return ErrTestFail
+	}
+	return nil
+}
+
 // Run runs the test cases defined in the manifest file.
-func Run(cfg CmdConfig, manifestPath string) error {
+func runEach(cfg CmdConfig, manifestPath string) testResultSummary {
 	// Read manifest yaml
 	manifestFile, err := os.ReadFile(manifestPath)
 	if err != nil {
-		return fmt.Errorf("read manifest YAML: %w", err)
+		return testResultSummary{
+			manifestPath: manifestPath,
+			fail:         1,
+			message:      fmt.Sprintf("FAIL: read manifest YAML: %v", err),
+		}
 	}
 
 	var manifests TestManifests
 	if err := yaml.Unmarshal(manifestFile, &manifests); err != nil {
-		return fmt.Errorf("unmarshal manifest YAML: %w", err)
+		return testResultSummary{
+			manifestPath: manifestPath,
+			fail:         1,
+			message:      fmt.Sprintf("FAIL: unmarshal manifest YAML: %v", err),
+		}
 	}
 
+	pwd := os.Getenv("PWD")
 	// Change directory to the base directory of manifest
 	if err := os.Chdir(filepath.Dir(manifestPath)); err != nil {
-		return fmt.Errorf("change directory: %w", err)
+		return testResultSummary{
+			manifestPath: manifestPath,
+			fail:         1,
+			message:      fmt.Sprintf("FAIL: change directory: %v", err),
+		}
 	}
+	defer os.Chdir(pwd)
 
 	// Load validatingAdmissionPolicies
 	loader := NewResourceLoader()
 	loader.LoadVaps(manifests.ValidatingAdmissionPolicies)
 	loader.LoadResources(manifests.Resources)
 
-	results := []TestResult{}
+	results := []testResult{}
 
 	// Run test cases one by one
 	for _, tt := range manifests.TestSuites {
 		// Create Validator
 		vap, ok := loader.Vaps[tt.Policy]
 		if !ok {
-			results = append(results, NewPolicyNotFoundResult(tt.Policy))
+			results = append(results, newPolicyNotFoundResult(tt.Policy))
 			continue
 		}
 		validator := kaptest.NewValidator(*vap)
@@ -62,7 +96,7 @@ func Run(cfg CmdConfig, manifestPath string) error {
 			// Setup params for validation
 			given, errs := newValidationParams(vap, tc, loader)
 			if len(errs) > 0 {
-				results = append(results, NewPolicyEvalErrorResult(tt.Policy, tc, errs))
+				results = append(results, newPolicyEvalErrorResult(tt.Policy, tc, errs))
 				continue
 			}
 
@@ -70,7 +104,7 @@ func Run(cfg CmdConfig, manifestPath string) error {
 			slog.Debug("RUN:   ", "policy", tt.Policy, "expect", tc.Expect, "object", tc.Object.String(), "oldObject", tc.OldObject.String(), "param", tc.Param.String())
 			validationResult, err := validator.Validate(given)
 			if err != nil {
-				results = append(results, NewPolicyEvalErrorResult(tt.Policy, tc, []error{err}))
+				results = append(results, newPolicyEvalErrorResult(tt.Policy, tc, []error{err}))
 				continue
 			}
 
@@ -78,14 +112,7 @@ func Run(cfg CmdConfig, manifestPath string) error {
 		}
 	}
 
-	// Show results
-	out, pass := Summarize(results, cfg.Verbose)
-	fmt.Println(out)
-
-	if !pass {
-		return ErrTestFail
-	}
-	return nil
+	return summarize(manifestPath, results, cfg.Verbose)
 }
 
 func newValidationParams(vap *v1.ValidatingAdmissionPolicy, tc TestCase, loader *ResourceLoader) (kaptest.CelParams, []error) {

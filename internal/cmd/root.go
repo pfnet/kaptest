@@ -2,8 +2,8 @@ package cmd
 
 import (
 	"kaptest/internal/tester"
-	"log"
 	"log/slog"
+	"os"
 
 	"github.com/spf13/cobra"
 )
@@ -11,7 +11,7 @@ import (
 func Execute() {
 	cmd := newRootCmd()
 	if err := cmd.Execute(); err != nil {
-		log.Fatal(err)
+		os.Exit(1)
 	}
 }
 
