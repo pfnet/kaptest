@@ -1,0 +1,12 @@
+validatingAdmissionPolicies:
+- ../vap-with-namespaces.yaml
+resources:
+- resources.yaml
+testSuites:
+- policy: deployment-replicas
+  tests:
+  - object:
+      kind: Deployment
+      name: ok
+      namespace: not-exist
+    expect: admit

@@ -1,0 +1,11 @@
+validatingAdmissionPolicies:
+- not-exist.yaml
+resources:
+- not-exist.yaml
+testSuites:
+- policy: dummy
+  tests:
+  - object:
+      kind: Deployment
+      name: ok
+    expect: admit

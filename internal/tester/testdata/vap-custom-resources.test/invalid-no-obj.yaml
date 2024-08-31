@@ -1,0 +1,11 @@
+validatingAdmissionPolicies:
+- ../vap-custom-resources.yaml
+resources:
+- resources.yaml
+testSuites:
+- policy: httpproxy-auth
+  tests:
+  - object:
+      kind: HTTPProxy
+      name: not-exist
+    expect: admit

@@ -31,7 +31,7 @@ func Run(cfg CmdConfig, pathList []string) error {
 	}
 
 	if len(pathList) > 1 {
-		fmt.Println("\n--------------------------------------------------")
+		fmt.Println("--------------------------------------------------")
 		fmt.Printf("Total: %d, Pass: %d, Fail: %d\n", passCount+failCount, passCount, failCount)
 	}
 
@@ -59,6 +59,13 @@ func runEach(cfg CmdConfig, manifestPath string) testResultSummary {
 			manifestPath: manifestPath,
 			fail:         1,
 			message:      fmt.Sprintf("FAIL: unmarshal manifest YAML: %v", err),
+		}
+	}
+	if ok, msg := manifests.IsValid(); !ok {
+		return testResultSummary{
+			manifestPath: manifestPath,
+			fail:         1,
+			message:      fmt.Sprintf("FAIL: invalid manifest: %v", msg),
 		}
 	}
 
@@ -122,12 +129,14 @@ func newValidationParams(vap *v1.ValidatingAdmissionPolicy, tc TestCase, loader 
 	if !tc.Object.IsValid() && !tc.OldObject.IsValid() {
 		errs = append(errs, fmt.Errorf("object or oldObject must be given and valid"))
 	} else {
-		// TODO: Extract load resource logic to ResourceLoader
 		if obj, err = loader.GetResource(tc.Object); err != nil {
 			errs = append(errs, fmt.Errorf("get object: %w", err))
 		}
 		if oldObj, err = loader.GetResource(tc.OldObject); err != nil {
 			errs = append(errs, fmt.Errorf("get oldObject: %w", err))
+		}
+		if obj == nil && oldObj == nil {
+			errs = append(errs, fmt.Errorf("neither object nor oldObject found"))
 		}
 	}
 

@@ -1,0 +1,19 @@
+validatingAdmissionPolicies:
+- ../vap-with-userinfo.yaml
+resources:
+- resources.yaml
+testSuites:
+- policy: deployment-replicas
+  tests:
+  - object:
+      kind: Deployment
+      name: ok
+    userInfo:
+      name: admin@example.com
+    expect: admit
+  - object:
+      kind: Deployment
+      name: ok
+    userInfo:
+      name: 'system:serviceaccount:foo:default'
+    expect: deny

@@ -1,0 +1,11 @@
+validatingAdmissionPolicies:
+- ../vap-standard-resources.yaml
+resources:
+- resources.yaml
+testSuites:
+- policy: not-exist
+  tests:
+  - object:
+      kind: Deployment
+      name: ok
+    expect: admit

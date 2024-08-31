@@ -164,9 +164,9 @@ func (s *testResultSummary) Pass() bool {
 
 func (s *testResultSummary) String(verbose bool) string {
 	out := []string{
-		fmt.Sprintf("\n--- Test %s", s.manifestPath),
+		fmt.Sprintf("[%s]", s.manifestPath),
 		s.message,
-		fmt.Sprintf("Total: %d, Pass: %d, Fail: %d", s.pass+s.fail, s.pass, s.fail),
+		fmt.Sprintf("Total: %d, Pass: %d, Fail: %d\n", s.pass+s.fail, s.pass, s.fail),
 	}
 	return strings.Join(out, "\n")
 }

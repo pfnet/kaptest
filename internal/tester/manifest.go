@@ -11,9 +11,20 @@ import (
 type TestManifests struct {
 	ValidatingAdmissionPolicies []string               `yaml:"validatingAdmissionPolicies,omitempty"`
 	Resources                   []string               `yaml:"resources,omitempty"`
-	Params                      []string               `yaml:"params,omitempty"`
-	Namespaces                  []string               `yaml:"namespaces,omitempty"`
 	TestSuites                  []TestsForSinglePolicy `yaml:"testSuites,omitempty"`
+}
+
+func (t TestManifests) IsValid() (bool, string) {
+	if len(t.ValidatingAdmissionPolicies) == 0 {
+		return false, "at least one validatingAdmissionPolicies is required"
+	}
+	if len(t.Resources) == 0 {
+		return false, "at least one resources is required"
+	}
+	if len(t.TestSuites) == 0 {
+		return false, "at least one testSuites is required"
+	}
+	return true, ""
 }
 
 // TestsForSinglePolicy is a struct to aggregate multiple test cases for a single policy.

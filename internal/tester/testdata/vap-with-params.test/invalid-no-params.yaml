@@ -1,0 +1,13 @@
+validatingAdmissionPolicies:
+- ../vap-with-params.yaml
+resources:
+- resources.yaml
+testSuites:
+- policy: deployment-replicas
+  tests:
+  - object:
+      kind: Deployment
+      name: ok
+    param:
+      name: not-exist
+    expect: admit
