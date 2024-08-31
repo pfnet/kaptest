@@ -11,7 +11,3 @@ test:
 build:
 	${DOCKER_BUILD} --build-arg GOOS=$(GOOS) --build-arg GOARCH=$(GOARCH) \
 		--build-arg APP_NAME=$(APP_NAME) --target export-binary --output . .
-
-.PHONY: cli-test
-cli-test:
-	go run internal/main.go --verbose run examples/cli/complicated/.kaptest/kaptest.yaml
