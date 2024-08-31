@@ -83,7 +83,7 @@ func (r *ResourceLoader) LoadResources(paths []string) {
 func (r *ResourceLoader) GetResource(ngvk NameWithGVK) (*unstructured.Unstructured, error) {
 	var obj *unstructured.Unstructured
 	for k, v := range r.Resources {
-		if k.Match(ngvk) {
+		if ngvk.Match(k) {
 			if obj != nil {
 				return nil, fmt.Errorf("multiple target resource found: %+v", ngvk.String())
 			}

@@ -141,7 +141,7 @@ func newValidationParams(vap *v1.ValidatingAdmissionPolicy, tc TestCase, loader 
 		errs = append(errs, fmt.Errorf("get namespace: %w", err))
 	}
 
-	userInfo := NewUserInfo(tc.UserInfo)
+	userInfo := NewK8sUserInfo(tc.UserInfo)
 
 	if len(errs) > 0 {
 		return kaptest.CelParams{}, errs
