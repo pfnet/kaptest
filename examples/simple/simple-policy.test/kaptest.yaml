@@ -1,0 +1,21 @@
+validatingAdmissionPolicies:
+- ../simple-policy.yaml
+resources:
+- resources.yaml
+testSuites:
+- policy: simple-policy
+  tests:
+  - object:
+      kind: Deployment
+      name: good-deployment
+    expect: admit
+  - object:
+      kind: Deployment
+      name: bad-deployment
+    expect: deny
+- policy: error-policy
+  tests:
+  - object:
+      kind: Deployment
+      name: good-deployment
+    expect: error

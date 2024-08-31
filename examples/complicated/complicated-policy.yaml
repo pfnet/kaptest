@@ -1,0 +1,42 @@
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: policy-with-params
+spec:
+  failurePolicy: Fail
+  matchConstraints:
+    resourceRules:
+    - apiGroups: [""]
+      apiVersions: ["v1"]
+      operations: ["CREATE", "UPDATE"]
+      resources: ["deployments"]
+  paramKind:
+    apiVersion: v1
+    kind: ConfigMap
+  variables:
+  - expression: "has(object.spec.replicas) ? object.spec.replicas : 1"
+    name: replicas
+  validations:
+  - expression: variables.replicas < int(params.data.maxReplicas)
+    messageExpression: "'replicas must be less than ' + params.data.maxReplicas"
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: policy-with-namespace
+spec:
+  failurePolicy: Fail
+  matchConstraints:
+    resourceRules:
+    - apiGroups: [""]
+      apiVersions: ["v1"]
+      operations: ["CREATE", "UPDATE"]
+      resources: ["deployments"]
+  variables:
+  - name: labels
+    expression: "has(namespaceObject.metadata.labels) ? namespaceObject.metadata.labels : {}"
+  - name: maxReplicas
+    expression: "'max-replicas' in variables.labels ? int(variables.labels['max-replicas']) : 1"
+  validations:
+  - expression: object.spec.replicas <= variables.maxReplicas
+    messageExpression: "'replicas must be less than ' + variables.maxReplicas"
