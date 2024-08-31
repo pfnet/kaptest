@@ -69,7 +69,14 @@ func runEach(cfg CmdConfig, manifestPath string) testResultSummary {
 		}
 	}
 
-	pwd := os.Getenv("PWD")
+	pwd, err := os.Getwd()
+	if err != nil {
+		return testResultSummary{
+			manifestPath: manifestPath,
+			fail:         1,
+			message:      fmt.Sprintf("FAIL: get current directory: %v", err),
+		}
+	}
 	// Change directory to the base directory of manifest
 	if err := os.Chdir(filepath.Dir(manifestPath)); err != nil {
 		return testResultSummary{
@@ -78,7 +85,7 @@ func runEach(cfg CmdConfig, manifestPath string) testResultSummary {
 			message:      fmt.Sprintf("FAIL: change directory: %v", err),
 		}
 	}
-	defer os.Chdir(pwd)
+	defer os.Chdir(pwd) //nolint:errcheck
 
 	// Load validatingAdmissionPolicies
 	loader := NewResourceLoader()

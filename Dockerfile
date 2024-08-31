@@ -10,6 +10,16 @@ RUN --mount=type=cache,target=/go/pkg/mod/ \
     --mount=type=bind,source=go.mod,target=go.mod \
     go mod download
 
+# Lint
+FROM builder AS lint-internal
+COPY --from=golangci/golangci-lint:v1.60 /usr/bin/golangci-lint /usr/bin/golangci-lint
+RUN --mount=type=cache,target=/go/pkg/mod/ \
+    --mount=type=bind,target=. \
+    golangci-lint run
+
+## Export the lint results only
+FROM scratch AS lint
+COPY --from=lint-internal /app /
 
 # Test
 FROM builder AS test-internal

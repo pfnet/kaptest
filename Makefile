@@ -7,6 +7,10 @@ GOARCH ?= amd64
 test:
 	${DOCKER_BUILD} --target test --output . .
 
+.PHONY: lint
+lint:
+	${DOCKER_BUILD} --target lint .
+
 .PHONY: build
 build:
 	${DOCKER_BUILD} --build-arg GOOS=$(GOOS) --build-arg GOARCH=$(GOARCH) \
