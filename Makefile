@@ -7,11 +7,11 @@ GOARCH ?= amd64
 test:
 	${DOCKER_BUILD} --target test --output . .
 
+.PHONY: lint
+lint:
+	${DOCKER_BUILD} --target lint .
+
 .PHONY: build
 build:
 	${DOCKER_BUILD} --build-arg GOOS=$(GOOS) --build-arg GOARCH=$(GOARCH) \
 		--build-arg APP_NAME=$(APP_NAME) --target export-binary --output . .
-
-.PHONY: cli-test
-cli-test:
-	go run internal/cmd/main.go --verbose run examples/cli/complicated/.kaptest/kaptest.yaml

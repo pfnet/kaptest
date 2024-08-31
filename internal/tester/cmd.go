@@ -1,7 +1,6 @@
 package tester
 
-type CliConfig struct {
-	ManifestPath string
-	Debug        bool
-	Verbose      bool
+type CmdConfig struct {
+	Debug   bool
+	Verbose bool
 }

@@ -2,29 +2,25 @@ package tester
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"log/slog"
 	"os"
 
 	v1 "k8s.io/api/admissionregistration/v1"
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	kyaml "k8s.io/apimachinery/pkg/util/yaml"
 )
 
 type ResourceLoader struct {
-	Vaps       map[string]*v1.ValidatingAdmissionPolicy
-	Resources  map[NameWithGVK]*unstructured.Unstructured
-	Params     map[NameWithGVK]*unstructured.Unstructured
-	Namespaces map[string]*corev1.Namespace
+	Vaps      map[string]*v1.ValidatingAdmissionPolicy
+	Resources map[NameWithGVK]*unstructured.Unstructured
 }
 
 func NewResourceLoader() *ResourceLoader {
 	return &ResourceLoader{
-		Vaps:       map[string]*v1.ValidatingAdmissionPolicy{},
-		Resources:  map[NameWithGVK]*unstructured.Unstructured{},
-		Params:     map[NameWithGVK]*unstructured.Unstructured{},
-		Namespaces: map[string]*corev1.Namespace{},
+		Vaps:      map[string]*v1.ValidatingAdmissionPolicy{},
+		Resources: map[NameWithGVK]*unstructured.Unstructured{},
 	}
 }
 
@@ -84,55 +80,15 @@ func (r *ResourceLoader) LoadResources(paths []string) {
 	}
 }
 
-func (r *ResourceLoader) LoadParams(paths []string) {
-	// TODO Extract common code with LoadResources
-	for _, filePath := range paths {
-		yamlFile, err := os.Open(filePath)
-		if err != nil {
-			slog.Error("read yaml file", "error", err)
-			continue
-		}
-		decoder := kyaml.NewYAMLToJSONDecoder(yamlFile)
-		for {
-			var obj map[string]any
-			if err := decoder.Decode(&obj); err != nil {
-				if errors.Is(err, io.EOF) {
-					break
-				}
-				slog.Warn("failed to decode resource", "error", err)
-				continue
+func (r *ResourceLoader) GetResource(ngvk NameWithGVK) (*unstructured.Unstructured, error) {
+	var obj *unstructured.Unstructured
+	for k, v := range r.Resources {
+		if ngvk.Match(k) {
+			if obj != nil {
+				return nil, fmt.Errorf("multiple target resource found: %+v", ngvk.String())
 			}
-			unstructuredObj := &unstructured.Unstructured{Object: obj}
-			ngvk := NewNameWithGVKFromObj(unstructuredObj)
-			r.Params[ngvk] = unstructuredObj
+			obj = v
 		}
 	}
-	for k := range r.Params {
-		slog.Debug("Param loaded:", "name", k)
-	}
-}
-
-func (r *ResourceLoader) LoadNamespaces(paths []string) {
-	for _, filePath := range paths {
-		yamlFile, err := os.Open(filePath)
-		if err != nil {
-			slog.Error("read yaml file", "error", err)
-			continue
-		}
-		decoder := kyaml.NewYAMLToJSONDecoder(yamlFile)
-		for {
-			var namespace corev1.Namespace
-			if err := decoder.Decode(&namespace); err != nil {
-				if errors.Is(err, io.EOF) {
-					break
-				}
-				slog.Warn("failed to decode namespace", "error", err)
-				continue
-			}
-			r.Namespaces[namespace.Name] = &namespace
-		}
-	}
-	for k := range r.Namespaces {
-		slog.Debug("Namespace loaded:", "name", k)
-	}
+	return obj, nil
 }

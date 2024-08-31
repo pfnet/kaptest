@@ -1,0 +1,13 @@
+apiVersion: projectcontour.io/v1
+kind: HTTPProxy
+metadata:
+  name: ok
+spec:
+  ingressClassName: contour
+---
+apiVersion: projectcontour.io/v1
+kind: HTTPProxy
+metadata:
+  name: bad
+spec:
+  ingressClassName: other-name

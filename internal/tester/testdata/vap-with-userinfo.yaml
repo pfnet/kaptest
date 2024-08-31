@@ -1,0 +1,15 @@
+apiVersion: admissionregistration.k8s.io/v1beta1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: deployment-replicas
+spec:
+  failurePolicy: Fail
+  matchConstraints:
+    resourceRules:
+    - apiGroups: [""]
+      apiVersions: ["v1"]
+      operations: ["CREATE", "UPDATE"]
+      resources: ["deployments"]
+  validations:
+  - expression: "request.userInfo.username != 'system:serviceaccount:foo:default'"
+    message: "system:serviceaccount:foo:default is not allowed to create or update deployments"

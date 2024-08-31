@@ -7,15 +7,15 @@ import (
 	"k8s.io/apiserver/pkg/admission/plugin/policy/validating"
 )
 
-// TestResult is the interface for the result of a test case.
-type TestResult interface {
+// testResult is the interface for the result of a test case.
+type testResult interface {
 	Pass() bool
 	// String returns a human-readable string representation of the result.
 	// If verbose is true, it includes the reason when the evaluation is not admitted.
 	String(verbose bool) string
 }
 
-var _ TestResult = &policyEvalResult{}
+var _ testResult = &policyEvalResult{}
 
 type policyEvalResult struct {
 	Policy    string
@@ -88,66 +88,47 @@ func (r *policyEvalResult) String(verbose bool) string {
 	return strings.Join(out, "\n")
 }
 
-func Summarize(results []TestResult, verbose bool) (string, bool) {
-	passCount := 0
-	failCount := 0
-	out := []string{}
-	for _, r := range results {
-		if r.Pass() {
-			passCount++
-		} else {
-			failCount++
-		}
-	}
-	for _, r := range results {
-		out = append(out, r.String(verbose))
-	}
-	out = append(out, fmt.Sprintf("\nTotal: %d, Pass: %d, Fail: %d", len(results), passCount, failCount))
-
-	return strings.Join(out, "\n"), failCount == 0
-}
-
-type PolicyNotFoundResult struct {
+type policyNotFoundResult struct {
 	Policy string
 }
 
-var _ TestResult = &PolicyNotFoundResult{}
+var _ testResult = &policyNotFoundResult{}
 
-func NewPolicyNotFoundResult(policy string) *PolicyNotFoundResult {
-	return &PolicyNotFoundResult{
+func newPolicyNotFoundResult(policy string) *policyNotFoundResult {
+	return &policyNotFoundResult{
 		Policy: policy,
 	}
 }
 
-func (r *PolicyNotFoundResult) Pass() bool {
+func (r *policyNotFoundResult) Pass() bool {
 	return false
 }
 
-func (r *PolicyNotFoundResult) String(verbose bool) string {
+func (r *policyNotFoundResult) String(verbose bool) string {
 	return fmt.Sprintf("FAIL: %s ==> POLICY NOT FOUND", r.Policy)
 }
 
-type PolicyEvalErrorResult struct {
+type policyEvalErrorResult struct {
 	Policy   string
 	TestCase TestCase
 	Errors   []error
 }
 
-var _ TestResult = &PolicyEvalErrorResult{}
+var _ testResult = &policyEvalErrorResult{}
 
-func NewPolicyEvalErrorResult(policy string, tc TestCase, errs []error) *PolicyEvalErrorResult {
-	return &PolicyEvalErrorResult{
+func newPolicyEvalErrorResult(policy string, tc TestCase, errs []error) *policyEvalErrorResult {
+	return &policyEvalErrorResult{
 		Policy:   policy,
 		TestCase: tc,
 		Errors:   errs,
 	}
 }
 
-func (r *PolicyEvalErrorResult) Pass() bool {
+func (r *policyEvalErrorResult) Pass() bool {
 	return false
 }
 
-func (r *PolicyEvalErrorResult) String(verbose bool) string {
+func (r *policyEvalErrorResult) String(verbose bool) string {
 	summary := fmt.Sprintf("FAIL: %s", r.Policy)
 	if r.TestCase.Object.IsValid() && r.TestCase.OldObject.IsValid() {
 		summary += fmt.Sprintf(" - %s -> %s ", r.TestCase.Object.String(), r.TestCase.OldObject.NamespacedName.String())
@@ -166,4 +147,44 @@ func (r *PolicyEvalErrorResult) String(verbose bool) string {
 		out = append(out, fmt.Sprintf("--- ERROR: %v", err))
 	}
 	return strings.Join(out, "\n")
+}
+
+type testResultSummary struct {
+	manifestPath string
+	pass         int
+	fail         int
+	message      string
+}
+
+var _ testResult = &testResultSummary{}
+
+func (s *testResultSummary) Pass() bool {
+	return s.fail == 0
+}
+
+func (s *testResultSummary) String(verbose bool) string {
+	out := []string{
+		fmt.Sprintf("[%s]", s.manifestPath),
+		s.message,
+		fmt.Sprintf("Total: %d, Pass: %d, Fail: %d\n", s.pass+s.fail, s.pass, s.fail),
+	}
+	return strings.Join(out, "\n")
+}
+
+func summarize(manifestPath string, results []testResult, verbose bool) testResultSummary {
+	summary := testResultSummary{
+		manifestPath: manifestPath,
+	}
+	out := []string{}
+	for _, r := range results {
+		if r.Pass() {
+			summary.pass++
+		} else {
+			summary.fail++
+		}
+		out = append(out, r.String(verbose))
+	}
+	summary.message = strings.Join(out, "\n")
+
+	return summary
 }

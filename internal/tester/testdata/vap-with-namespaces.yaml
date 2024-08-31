@@ -1,0 +1,20 @@
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: deployment-replicas
+spec:
+  failurePolicy: Fail
+  matchConstraints:
+    resourceRules:
+    - apiGroups: [""]
+      apiVersions: ["v1"]
+      operations: ["CREATE", "UPDATE"]
+      resources: ["deployments"]
+  variables:
+  - name: annotations
+    expression: "has(namespaceObject.metadata.annotations) ? namespaceObject.metadata.annotations : {}"
+  - name: maxReplicas
+    expression: "'max-replicas' in variables.annotations ? int(variables.annotations['max-replicas']) : 0"
+  validations:
+  - expression: object.spec.replicas <= variables.maxReplicas
+    messageExpression: "'replicas must be equal or less than ' + variables.maxReplicas"

@@ -3,16 +3,17 @@ package tester
 import (
 	"errors"
 	"fmt"
+	"kaptest"
 	"log/slog"
 	"os"
 	"path/filepath"
 
-	"kaptest"
-
 	"gopkg.in/yaml.v2"
 	v1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
@@ -20,39 +21,85 @@ var (
 	ErrTestFail = errors.New("test failed")
 )
 
+func Run(cfg CmdConfig, pathList []string) error {
+	var passCount, failCount int
+	for _, path := range pathList {
+		r := runEach(cfg, path)
+		fmt.Println(r.String(false))
+		passCount += r.pass
+		failCount += r.fail
+	}
+
+	if len(pathList) > 1 {
+		fmt.Println("--------------------------------------------------")
+		fmt.Printf("Total: %d, Pass: %d, Fail: %d\n", passCount+failCount, passCount, failCount)
+	}
+
+	if failCount > 0 {
+		return ErrTestFail
+	}
+	return nil
+}
+
 // Run runs the test cases defined in the manifest file.
-func Run(cfg CliConfig) error {
+func runEach(cfg CmdConfig, manifestPath string) testResultSummary {
 	// Read manifest yaml
-	manifestFile, err := os.ReadFile(cfg.ManifestPath)
+	manifestFile, err := os.ReadFile(manifestPath)
 	if err != nil {
-		return fmt.Errorf("read manifest YAML: %w", err)
+		return testResultSummary{
+			manifestPath: manifestPath,
+			fail:         1,
+			message:      fmt.Sprintf("FAIL: read manifest YAML: %v", err),
+		}
 	}
 
 	var manifests TestManifests
 	if err := yaml.Unmarshal(manifestFile, &manifests); err != nil {
-		return fmt.Errorf("unmarshal manifest YAML: %w", err)
+		return testResultSummary{
+			manifestPath: manifestPath,
+			fail:         1,
+			message:      fmt.Sprintf("FAIL: unmarshal manifest YAML: %v", err),
+		}
+	}
+	if ok, msg := manifests.IsValid(); !ok {
+		return testResultSummary{
+			manifestPath: manifestPath,
+			fail:         1,
+			message:      fmt.Sprintf("FAIL: invalid manifest: %v", msg),
+		}
 	}
 
-	// Change directory to the base directory of manifest
-	if err := os.Chdir(filepath.Dir(cfg.ManifestPath)); err != nil {
-		return fmt.Errorf("change directory: %w", err)
+	pwd, err := os.Getwd()
+	if err != nil {
+		return testResultSummary{
+			manifestPath: manifestPath,
+			fail:         1,
+			message:      fmt.Sprintf("FAIL: get current directory: %v", err),
+		}
 	}
+	// Change directory to the base directory of manifest
+	if err := os.Chdir(filepath.Dir(manifestPath)); err != nil {
+		return testResultSummary{
+			manifestPath: manifestPath,
+			fail:         1,
+			message:      fmt.Sprintf("FAIL: change directory: %v", err),
+		}
+	}
+	defer os.Chdir(pwd) //nolint:errcheck
 
 	// Load validatingAdmissionPolicies
 	loader := NewResourceLoader()
 	loader.LoadVaps(manifests.ValidatingAdmissionPolicies)
 	loader.LoadResources(manifests.Resources)
-	loader.LoadParams(manifests.Params)
-	loader.LoadNamespaces(manifests.Namespaces)
 
-	results := []TestResult{}
+	results := []testResult{}
 
 	// Run test cases one by one
 	for _, tt := range manifests.TestSuites {
 		// Create Validator
 		vap, ok := loader.Vaps[tt.Policy]
 		if !ok {
-			results = append(results, NewPolicyNotFoundResult(tt.Policy))
+			results = append(results, newPolicyNotFoundResult(tt.Policy))
 			continue
 		}
 		validator := kaptest.NewValidator(*vap)
@@ -63,7 +110,7 @@ func Run(cfg CliConfig) error {
 			// Setup params for validation
 			given, errs := newValidationParams(vap, tc, loader)
 			if len(errs) > 0 {
-				results = append(results, NewPolicyEvalErrorResult(tt.Policy, tc, errs))
+				results = append(results, newPolicyEvalErrorResult(tt.Policy, tc, errs))
 				continue
 			}
 
@@ -71,7 +118,7 @@ func Run(cfg CliConfig) error {
 			slog.Debug("RUN:   ", "policy", tt.Policy, "expect", tc.Expect, "object", tc.Object.String(), "oldObject", tc.OldObject.String(), "param", tc.Param.String())
 			validationResult, err := validator.Validate(given)
 			if err != nil {
-				results = append(results, NewPolicyEvalErrorResult(tt.Policy, tc, []error{err}))
+				results = append(results, newPolicyEvalErrorResult(tt.Policy, tc, []error{err}))
 				continue
 			}
 
@@ -79,86 +126,102 @@ func Run(cfg CliConfig) error {
 		}
 	}
 
-	// Show results
-	out, pass := Summarize(results, cfg.Verbose)
-	fmt.Println(out)
-
-	if !pass {
-		return ErrTestFail
-	}
-	return nil
+	return summarize(manifestPath, results, cfg.Verbose)
 }
 
 func newValidationParams(vap *v1.ValidatingAdmissionPolicy, tc TestCase, loader *ResourceLoader) (kaptest.CelParams, []error) {
 	var errs []error
-	var object, oldObject *unstructured.Unstructured
+	var err error
+	var obj, oldObj *unstructured.Unstructured
 	if !tc.Object.IsValid() && !tc.OldObject.IsValid() {
 		errs = append(errs, fmt.Errorf("object or oldObject must be given and valid"))
 	} else {
-		for k, v := range loader.Resources {
-			if k.Match(tc.Object) {
-				if object != nil {
-					errs = append(errs, fmt.Errorf("multiple target resource found for object: %+v", tc.Object))
-					break
-				}
-				object = v
-			}
-			if k.Match(tc.OldObject) {
-				if oldObject != nil {
-					errs = append(errs, fmt.Errorf("multiple target resource found for oldObject: %+v", tc.OldObject))
-					break
-				}
-				oldObject = v
-			}
+		if obj, err = loader.GetResource(tc.Object); err != nil {
+			errs = append(errs, fmt.Errorf("get object: %w", err))
+		}
+		if oldObj, err = loader.GetResource(tc.OldObject); err != nil {
+			errs = append(errs, fmt.Errorf("get oldObject: %w", err))
+		}
+		if obj == nil && oldObj == nil {
+			errs = append(errs, fmt.Errorf("neither object nor oldObject found"))
 		}
 	}
 
 	var paramObj *unstructured.Unstructured
-	if vap.Spec.ParamKind != nil {
-		if tc.Param.Name != "" {
-			for k, v := range loader.Params {
-				paramNGVK := NewNameWithGVK(schema.FromAPIVersionAndKind(vap.Spec.ParamKind.APIVersion, vap.Spec.ParamKind.Kind), tc.Param)
-				if k.Match(paramNGVK) {
-					if paramObj != nil {
-						errs = append(errs, fmt.Errorf("multiple target resource found for param: %+v", tc.Param))
-					}
-					paramObj = v
-				}
-			}
-			if paramObj == nil {
-				errs = append(errs, fmt.Errorf("param not found"))
-			}
-		}
+	if paramObj, err = getParamObj(loader, vap, tc.Param); err != nil {
+		errs = append(errs, fmt.Errorf("get param: %w", err))
 	}
 
 	var namespaceObj *corev1.Namespace
-	if object == nil && oldObject == nil {
-		errs = append(errs, fmt.Errorf("neither object nor oldObject found"))
-	} else {
-		namespaceName, err := getNamespaceName(object, oldObject)
-		if err != nil {
-			errs = append(errs, fmt.Errorf("extract namespace: %w", err))
-		} else if namespaceName != "" {
-			var ok bool
-			namespaceObj, ok = loader.Namespaces[namespaceName]
-			if !ok {
-				errs = append(errs, fmt.Errorf("namespace not found"))
-			}
-		}
+	if namespaceObj, err = getNamespaceObj(loader, obj, oldObj); err != nil {
+		errs = append(errs, fmt.Errorf("get namespace: %w", err))
 	}
 
-	userInfo := NewUserInfo(tc.UserInfo)
+	userInfo := NewK8sUserInfo(tc.UserInfo)
 
 	if len(errs) > 0 {
 		return kaptest.CelParams{}, errs
 	}
+
 	return kaptest.CelParams{
-		Object:       object,
-		OldObject:    oldObject,
+		Object:       obj,
+		OldObject:    oldObj,
 		ParamObj:     paramObj,
 		NamespaceObj: namespaceObj,
 		UserInfo:     &userInfo,
 	}, nil
+}
+
+func getParamObj(loader *ResourceLoader, vap *v1.ValidatingAdmissionPolicy, param NamespacedName) (*unstructured.Unstructured, error) {
+	if vap.Spec.ParamKind == nil {
+		return nil, nil
+	}
+	if param.Name == "" {
+		return nil, fmt.Errorf("param name is empty")
+	}
+
+	paramNGVK := NewNameWithGVK(schema.FromAPIVersionAndKind(vap.Spec.ParamKind.APIVersion, vap.Spec.ParamKind.Kind), param)
+	paramObj, err := loader.GetResource(paramNGVK)
+	if err != nil {
+		return nil, fmt.Errorf("get param: %w", err)
+	}
+	if paramObj == nil {
+		return nil, fmt.Errorf("param not found")
+	}
+	return paramObj, nil
+}
+
+func getNamespaceObj(loader *ResourceLoader, obj, oldObj *unstructured.Unstructured) (*corev1.Namespace, error) {
+	if obj == nil && oldObj == nil {
+		return nil, fmt.Errorf("neither object nor oldObject found")
+	}
+	namespaceName, err := getNamespaceName(obj, oldObj)
+	if err != nil {
+		return nil, fmt.Errorf("extract namespace: %w", err)
+	}
+	if namespaceName == "" {
+		return nil, nil
+	}
+
+	namespaceNGVK := NewNameWithGVK(schema.FromAPIVersionAndKind("v1", "Namespace"), NamespacedName{Name: namespaceName})
+	uNamespaceObj, err := loader.GetResource(namespaceNGVK)
+	if err != nil {
+		return nil, fmt.Errorf("get namespace: %w", err)
+	}
+	if uNamespaceObj == nil {
+		slog.Info("use default namespace with no labels and annotations", "namespace", namespaceName)
+		return &corev1.Namespace{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: namespaceName,
+			},
+		}, nil
+	}
+
+	var namespaceObj corev1.Namespace
+	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(uNamespaceObj.Object, &namespaceObj); err != nil {
+		return nil, fmt.Errorf("convert to namespace: %w", err)
+	}
+	return &namespaceObj, nil
 }
 
 func getNamespaceName(obj, oldObj *unstructured.Unstructured) (string, error) {

@@ -3,4 +3,4 @@ kind: Namespace
 metadata:
   labels:
     max-replicas: "5"
-  name: org-foo
+  name: foo

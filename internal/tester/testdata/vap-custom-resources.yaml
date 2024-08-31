@@ -1,0 +1,24 @@
+apiVersion: admissionregistration.k8s.io/v1beta1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: httpproxy-auth
+spec:
+  matchConstraints:
+    resourceRules:
+    - apiGroups:   ["projectcontour.io"]
+      apiVersions: ["*"]
+      operations:  ["CREATE", "UPDATE"]
+      resources:   ["httpproxies"]
+  variables:
+  - name: annotations
+    expression: "has(object.metadata.annotations) ? object.metadata.annotations : {}"
+  - name: ingressClassInAnn1
+    expression: "'projectcontour.io/ingress.class' in variables.annotations ? variables.annotations['projectcontour.io/ingress.class'] : ''"
+  - name: ingressClassInAnn2
+    expression: "'kubernetes.io/ingress.class' in variables.annotations ? variables.annotations['kubernetes.io/ingress.class'] : ''"
+  validations:
+  - expression: >-
+      has(object.spec.ingressClassName) && object.spec.ingressClassName == 'contour'
+        || variables.ingressClassInAnn1 == 'contour'
+        || variables.ingressClassInAnn2 == 'contour'
+    message: "IngressClass must be 'contour'."

@@ -1,0 +1,35 @@
+validatingAdmissionPolicies:
+- ../complicated-policy.yaml
+resources:
+- resources.yaml
+- params.yaml
+- namespace.yaml
+testSuites:
+- policy: policy-with-params
+  tests:
+  - object:
+      kind: Deployment
+      name: good-deployment
+    param:
+      name: config1
+      namespace: hoge
+    expect: admit
+  - object:
+      kind: Deployment
+      name: bad-deployment
+    param:
+      name: config1
+      namespace: hoge
+    expect: deny
+- policy: policy-with-namespace
+  tests:
+  - object:
+      kind: Deployment
+      name: good-deployment
+      namespace: org-foo
+    expect: admit
+  - object:
+      kind: Deployment
+      name: bad-deployment
+      namespace: org-foo
+    expect: deny
