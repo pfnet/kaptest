@@ -153,7 +153,7 @@ func getPolicyNames(targetFilePath string) ([]string, error) {
 			if errors.Is(err, io.EOF) {
 				break
 			}
-			slog.Warn("failed to decode ValidatingAdmissionPolicy", "error", err)
+			slog.Warn("failed to decode", "error", err)
 			continue
 		}
 		if vap.Kind != "ValidatingAdmissionPolicy" {

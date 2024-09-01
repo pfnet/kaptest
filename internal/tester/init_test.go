@@ -1,12 +1,14 @@
 package tester
 
 import (
+	"io"
 	"os"
 	"path/filepath"
 	"testing"
 
 	"gopkg.in/yaml.v2"
 	v1 "k8s.io/api/admissionregistration/v1"
+	appsv1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apiserver/pkg/admission/plugin/policy/validating"
 	"k8s.io/cli-runtime/pkg/printers"
@@ -14,24 +16,31 @@ import (
 )
 
 func TestRunInit(t *testing.T) {
+	t.Parallel()
 	y := printers.YAMLPrinter{}
 	manifestFile := "policy.yaml"
 	testDir := "policy.test"
 
 	tests := []struct {
 		name  string
-		setup func(tmpDir string)
+		setup func(tmpDir string, manifestFile io.Writer)
 	}{
 		{
 			name: "ok",
-			setup: func(tmpDir string) {
+			setup: func(tmpDir string, manifestFile io.Writer) {
 				// nop
 			},
 		},
 		{
 			name: "ok: test dir already exists",
-			setup: func(tmpDir string) {
+			setup: func(tmpDir string, manifestFile io.Writer) {
 				mustNil(t, os.Mkdir(filepath.Join(tmpDir, testDir), 0755))
+			},
+		},
+		{
+			name: "ok: other resources are included in the policy file",
+			setup: func(tmpDir string, manifestFile io.Writer) {
+				mustNil(t, y.PrintObj(dummyDeployment(), manifestFile))
 			},
 		},
 	}
@@ -42,25 +51,29 @@ func TestRunInit(t *testing.T) {
 			manifestPath := filepath.Join(dir, manifestFile)
 			f, _ := os.Create(manifestPath)
 			mustNil(t, y.PrintObj(sampleValidatingAdmissionPolicy(), f))
-			tt.setup(dir)
+			tt.setup(dir, f)
 
 			if err := RunInit(CmdConfig{Verbose: true}, manifestPath); err != nil {
-				t.Fatalf("RunInit() = %v, want nil", err)
+				t.Errorf("RunInit() = %v, want nil", err)
+				return
 			}
 
 			// Check the test directory
 			info, err := os.Stat(filepath.Join(dir, testDir))
 			if err != nil {
-				t.Fatalf("root manifest file is not generated: %v", err)
+				t.Errorf("root manifest file is not generated: %v", err)
+				return
 			}
 			if !info.IsDir() {
-				t.Fatalf("test directory is not generated")
+				t.Errorf("test directory is not generated")
+				return
 			}
 
 			// Check the root manifest file
 			buf, err := os.ReadFile(filepath.Join(dir, testDir, rootManifestName))
 			if err != nil {
-				t.Fatalf("root manifest file is not generated: %v", err)
+				t.Errorf("root manifest file is not generated: %v", err)
+				return
 			}
 			if string(buf) != string(wantRootManifest()) {
 				t.Errorf("root manifest content is not as expected: %s", buf)
@@ -127,6 +140,19 @@ func sampleValidatingAdmissionPolicy() *v1.ValidatingAdmissionPolicy {
 	return vap
 }
 
+func dummyDeployment() *appsv1.Deployment {
+	d := &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "dummy",
+		},
+		Spec: appsv1.DeploymentSpec{
+			Replicas: ptr.To(int32(3)),
+		},
+	}
+	d.GetObjectKind().SetGroupVersionKind(appsv1.SchemeGroupVersion.WithKind("Deployment"))
+	return d
+}
+
 func wantRootManifest() []byte {
 	m := TestManifests{
 		ValidatingAdmissionPolicies: []string{"../policy.yaml"},
@@ -160,6 +186,6 @@ func wantRootManifest() []byte {
 func mustNil(t *testing.T, err error) {
 	t.Helper()
 	if err != nil {
-		t.Fatal(err)
+		panic(err)
 	}
 }
