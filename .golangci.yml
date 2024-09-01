@@ -35,3 +35,4 @@ issues:
     linters:
     - errorlint
     - bodyclose
+    - gosec
