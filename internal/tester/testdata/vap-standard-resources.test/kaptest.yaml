@@ -13,3 +13,43 @@ testSuites:
       kind: Deployment
       name: bad
     expect: deny
+  - object:
+      kind: Deployment
+      name: ok
+    oldObject:
+      kind: Deployment
+      name: non-immutable
+    expect: admit
+  - object:
+      kind: Deployment
+      name: bad
+    oldObject:
+      kind: Deployment
+      name: non-immutable
+    expect: deny
+- policy: deployment-check-immutable
+  tests:
+  - object:
+      kind: Deployment
+      name: ok
+    oldObject:
+      kind: Deployment
+      name: non-immutable
+    expect: admit
+  - object:
+      kind: Deployment
+      name: ok
+    oldObject:
+      kind: Deployment
+      name: immutable
+    expect: deny
+- policy: deployment-check-deletable
+  tests:
+  - oldObject:
+      kind: Deployment
+      name: deletable
+    expect: admit
+  - oldObject:
+      kind: Deployment
+      name: non-deletable
+    expect: deny

@@ -57,11 +57,11 @@ func (r *policyEvalResult) String(verbose bool) string {
 
 	summary += fmt.Sprintf(": %s", r.Policy)
 	if r.TestCase.Object.IsValid() && r.TestCase.OldObject.IsValid() {
-		summary += fmt.Sprintf(" - %s -> %s ", r.TestCase.Object.String(), r.TestCase.OldObject.NamespacedName.String())
+		summary += fmt.Sprintf(" - (UPDATE) %s -> %s ", r.TestCase.Object.String(), r.TestCase.OldObject.NamespacedName.String())
 	} else if r.TestCase.Object.IsValid() {
-		summary += fmt.Sprintf(" - %s", r.TestCase.Object.String())
+		summary += fmt.Sprintf(" - (CREATE) %s", r.TestCase.Object.String())
 	} else if r.TestCase.OldObject.IsValid() {
-		summary += fmt.Sprintf(" - %s", r.TestCase.OldObject.String())
+		summary += fmt.Sprintf(" - (DELETE) %s", r.TestCase.OldObject.String())
 	}
 	if r.TestCase.Param.IsValid() {
 		summary += fmt.Sprintf(" (Param: %s)", r.TestCase.Param.String())
