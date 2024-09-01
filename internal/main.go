@@ -15,7 +15,7 @@
 package main
 
 import (
-	"kaptest/internal/cmd"
+	"github.com/pfnet/kaptest/internal/cmd"
 )
 
 func main() {

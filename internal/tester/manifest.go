@@ -3,7 +3,6 @@ package tester
 import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apiserver/pkg/admission/plugin/policy/validating"
 	"k8s.io/apiserver/pkg/authentication/user"
 )
 
@@ -33,13 +32,22 @@ type TestsForSinglePolicy struct {
 	Tests  []TestCase `yaml:"tests"`
 }
 
+type PolicyDecisionExpect string
+
+const (
+	Admit PolicyDecisionExpect = "admit"
+	Deny  PolicyDecisionExpect = "deny"
+	Error PolicyDecisionExpect = "error"
+	Skip  PolicyDecisionExpect = "skip"
+)
+
 // TestCase is a struct to represent a single test case.
 type TestCase struct {
-	Object    NameWithGVK                         `yaml:"object,omitempty"`
-	OldObject NameWithGVK                         `yaml:"oldObject,omitempty"`
-	Param     NamespacedName                      `yaml:"param,omitempty"`
-	Expect    validating.PolicyDecisionEvaluation `yaml:"expect,omitempty"`
-	UserInfo  UserInfo                            `yaml:"userInfo,omitempty"`
+	Object    NameWithGVK          `yaml:"object,omitempty"`
+	OldObject NameWithGVK          `yaml:"oldObject,omitempty"`
+	Param     NamespacedName       `yaml:"param,omitempty"`
+	Expect    PolicyDecisionExpect `yaml:"expect,omitempty"`
+	UserInfo  UserInfo             `yaml:"userInfo,omitempty"`
 	// TODO: Support message test
 	// Message   string                              `yaml:"message"`
 }
@@ -138,7 +146,7 @@ func NewNameWithGVK(gvk schema.GroupVersionKind, namespacedName NamespacedName) 
 	}
 }
 
-// UserInfo is a struct to represent user information to populate request.userInfo
+// UserInfo is a struct to represent user information to populate request.userInfo.
 type UserInfo struct {
 	Name   string   `yaml:"name"`
 	Groups []string `yaml:"groups"`

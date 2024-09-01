@@ -3,36 +3,38 @@ package kaptest
 import (
 	"context"
 	"fmt"
+	"reflect"
 
 	v1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/apiserver/pkg/admission/plugin/cel"
-	"k8s.io/apiserver/pkg/authentication/user"
-
 	"k8s.io/apiserver/pkg/admission/plugin/policy/validating"
 	"k8s.io/apiserver/pkg/admission/plugin/webhook/matchconditions"
+	celconfig "k8s.io/apiserver/pkg/apis/cel"
+	"k8s.io/apiserver/pkg/authentication/user"
 	"k8s.io/apiserver/pkg/cel/environment"
 )
 
-// Interface to test Validating Admission Policy
-type Validator interface {
-	EvalMatchCondition(p CelParams) (*matchconditions.MatchResult, error)
-	Validate(p CelParams) (*validating.ValidateResult, error)
+// ValidatorInterface is an interface to evaluate ValidatingAdmissionPolicy.
+type ValidatorInterface interface {
+	EvalMatchCondition(p ValidationParams) *matchconditions.MatchResult
+	Validate(p ValidationParams) (*validating.ValidateResult, error)
 }
 
-type validator struct {
+type Validator struct {
+	policy    *v1.ValidatingAdmissionPolicy
 	validator validating.Validator
-	policy    v1.ValidatingAdmissionPolicy
 	matcher   matchconditions.Matcher
 }
 
-// Parameters that can be used in CEL expressions
-type CelParams struct {
+var _ ValidatorInterface = &Validator{}
+
+// ValidationParams contains the parameters required to evaluate a ValidatingAdmissionPolicy.
+type ValidationParams struct {
 	Object       runtime.Object
 	OldObject    runtime.Object
 	ParamObj     runtime.Object
@@ -40,27 +42,39 @@ type CelParams struct {
 	UserInfo     user.Info
 }
 
-// NewValidator compiles the provided ValidatingAdmissionPolicy to evaluate CEL expressions
-func NewValidator(policy v1.ValidatingAdmissionPolicy) *validator {
-	v, m := compilePolicy(policy)
-	return &validator{validator: v, policy: policy, matcher: m}
+func (p ValidationParams) Operation() admission.Operation {
+	if p.Object != nil && p.OldObject != nil {
+		return admission.Update
+	}
+	if p.Object != nil {
+		return admission.Create
+	}
+	return admission.Delete
 }
 
-func compilePolicy(policy v1.ValidatingAdmissionPolicy) (validating.Validator, matchconditions.Matcher) {
+// NewValidator compiles the provided ValidatingAdmissionPolicy and generates Validator.
+func NewValidator(policy *v1.ValidatingAdmissionPolicy) *Validator {
+	v, m := compilePolicy(policy)
+	return &Validator{validator: v, policy: policy, matcher: m}
+}
+
+// Original: https://github.com/kubernetes/kubernetes/blob/8bd6c10ba5833369fb6582587b77de8f8b51c371/staging/src/k8s.io/apiserver/pkg/admission/plugin/policy/validating/plugin.go#L121-L157
+func compilePolicy(policy *v1.ValidatingAdmissionPolicy) (validating.Validator, matchconditions.Matcher) {
 	hasParam := false
 	if policy.Spec.ParamKind != nil {
 		hasParam = true
 	}
+	// NOTE: StrictCost option is disabled for now.
 	optionalVars := cel.OptionalVariableDeclarations{HasParams: hasParam, HasAuthorizer: true, StrictCost: false}
 	expressionOptionalVars := cel.OptionalVariableDeclarations{HasParams: hasParam, HasAuthorizer: false, StrictCost: false}
 	failurePolicy := policy.Spec.FailurePolicy
 	var matcher matchconditions.Matcher = nil
 	matchConditions := policy.Spec.MatchConditions
-	envTemplate, err := cel.NewCompositionEnv(cel.VariablesTypeName, environment.MustBaseEnvSet(environment.DefaultCompatibilityVersion(), false))
+	compositionEnvTemplate, err := cel.NewCompositionEnv(cel.VariablesTypeName, environment.MustBaseEnvSet(environment.DefaultCompatibilityVersion(), false))
 	if err != nil {
 		panic(err)
 	}
-	filterCompiler := cel.NewCompositedCompilerFromTemplate(envTemplate)
+	filterCompiler := cel.NewCompositedCompilerFromTemplate(compositionEnvTemplate)
 	filterCompiler.CompileAndStoreVariables(convertv1beta1Variables(policy.Spec.Variables), optionalVars, environment.StoredExpressions)
 
 	if len(matchConditions) > 0 {
@@ -127,86 +141,74 @@ func convertv1beta1Variables(variables []v1.Variable) []cel.NamedExpressionAcces
 	return namedExpressions
 }
 
-// Evaluate policy's match conditions. This returns the result of match, which tells
-// whether the expressions were evaluated to 'match' and, and if not, which expression was
-// evaluated to 'false'
-// TODO: This is a hack to be able to check the name of failed expressions in matchCondition
-// This is because k/k's Validate func does not output the name of failed expressions.
-func (v *validator) EvalMatchCondition(p CelParams) (*matchconditions.MatchResult, error) {
+// EvalMatchCondition evaluates ValidatingAdmissionPolicies' match conditions.
+// It returns the result of the matchCondition evaluation to tell the caller which one is evaluated as 'false'.
+// This is a hack to be able to check the name of failed expressions in matchCondition.
+//
+// TODO: Remove this func after k/k's Validate func outputs the name of the failed matchCondition.
+func (v *Validator) EvalMatchCondition(p ValidationParams) *matchconditions.MatchResult {
 	if v.matcher == nil {
-		return nil, fmt.Errorf("match condition is not defined")
+		panic("matcher is not defined")
 	}
 	ctx := context.Background()
-	nameWithGVK, err := getNameWithGVK(p)
-	if err != nil {
-		return nil, err
-	}
-	groupVersionResource := schema.GroupVersionResource{
-		Group:    nameWithGVK.gvk.Group,
-		Version:  nameWithGVK.gvk.Version,
-		Resource: stubResource(),
-	}
-	versionedAttribute := &admission.VersionedAttributes{
-		Attributes: admission.NewAttributesRecord(
-			p.Object,
-			p.OldObject,
-			nameWithGVK.gvk,
-			nameWithGVK.namespace,
-			nameWithGVK.name,
-			groupVersionResource,
-			stubSubResource(), stubAdmissionOperation(),
-			stubOperationOptions(), stubIsDryRun(), p.UserInfo,
-		),
-		VersionedOldObject: p.OldObject,
-		VersionedObject:    p.Object,
-		VersionedKind:      nameWithGVK.gvk,
-		Dirty:              false,
-	}
+	versionedAttribute, _ := makeVersionedAttribute(p)
 	matchResults := v.matcher.Match(ctx, versionedAttribute, p.ParamObj, stubAuthz())
-	return &matchResults, nil
+	return &matchResults
 }
 
-// Evaluate policy's validations. ValidationResult contains the result of each validation
-// (Admit, Deny, Error) and the reason if it is evaluated as Deny or Error
-func (v *validator) Validate(p CelParams) (*validating.ValidateResult, error) {
+// Validate evaluates ValidationAdmissionPolicies' validations.
+// ValidationResult contains the result of each validation(Admit, Deny, Error)
+// and the reason if it is evaluated as Deny or Error.
+func (v *Validator) Validate(p ValidationParams) (*validating.ValidateResult, error) {
 	ctx := context.Background()
-	nameWithGVK, err := getNameWithGVK(p)
-	if err != nil {
-		return nil, err
-	}
-	groupVersionResource := schema.GroupVersionResource{
-		Group:    nameWithGVK.gvk.Group,
-		Version:  nameWithGVK.gvk.Version,
-		Resource: stubResource(),
-	}
-	matchedResource := groupVersionResource
-	versionedAttribute := &admission.VersionedAttributes{
-		Attributes: admission.NewAttributesRecord(
-			p.Object,
-			p.OldObject,
-			nameWithGVK.gvk,
-			nameWithGVK.namespace,
-			nameWithGVK.name,
-			groupVersionResource,
-			stubSubResource(), stubAdmissionOperation(),
-			stubOperationOptions(), stubIsDryRun(), p.UserInfo,
-		),
-		VersionedOldObject: p.OldObject,
-		VersionedObject:    p.Object,
-		VersionedKind:      nameWithGVK.gvk,
-		Dirty:              false,
-	}
+	versionedAttribute, matchedResource := makeVersionedAttribute(p)
 	result := v.validator.Validate(
 		ctx,
 		matchedResource,
 		versionedAttribute,
 		p.ParamObj,
 		p.NamespaceObj,
-		stubRuntimeCELCostBudget(),
+		celconfig.RuntimeCELCostBudget,
+		// Inject stub authorizer since this testing tool focuses on the validation logic.
 		stubAuthz(),
 	)
 	correctResult := correctValidateResult(result)
 	return &correctResult, nil
+}
+
+func makeVersionedAttribute(p ValidationParams) (*admission.VersionedAttributes, schema.GroupVersionResource) {
+	nameWithGVK, err := getNameWithGVK(p)
+	if err != nil {
+		return nil, schema.GroupVersionResource{}
+	}
+	groupVersionResource := schema.GroupVersionResource{
+		Group:   nameWithGVK.gvk.Group,
+		Version: nameWithGVK.gvk.Version,
+		// NOTE: GVR.Resource is not populated
+		Resource: "",
+	}
+	return &admission.VersionedAttributes{
+		Attributes: admission.NewAttributesRecord(
+			p.Object,
+			p.OldObject,
+			nameWithGVK.gvk,
+			nameWithGVK.namespace,
+			nameWithGVK.name,
+			groupVersionResource,
+			// NOTE: subResource is not populated
+			"", // subResource
+			p.Operation(),
+			// NOTE: operationOptions is not populated
+			nil, // operationOptions
+			// NOTE: dryRun is always true
+			true, // dryRun
+			p.UserInfo,
+		),
+		VersionedOldObject: p.OldObject,
+		VersionedObject:    p.Object,
+		VersionedKind:      nameWithGVK.gvk,
+		Dirty:              false,
+	}, groupVersionResource
 }
 
 type nameWithGVK struct {
@@ -215,22 +217,22 @@ type nameWithGVK struct {
 	gvk       schema.GroupVersionKind
 }
 
-func getNameWithGVK(p CelParams) (*nameWithGVK, error) {
-	if p.Object == nil && p.OldObject == nil {
+func getNameWithGVK(p ValidationParams) (*nameWithGVK, error) {
+	if isNil(p.Object) && isNil(p.OldObject) {
 		return nil, fmt.Errorf("object or oldObject must be set")
 	}
 	obj := p.Object
-	if obj == nil {
+	if isNil(obj) {
 		obj = p.OldObject
 	}
 	namer := meta.NewAccessor()
 	name, err := namer.Name(obj)
 	if err != nil {
-		return nil, fmt.Errorf("name is not valid: %v", err)
+		return nil, fmt.Errorf("name is not valid: %w", err)
 	}
 	namespaceName, err := namer.Namespace(obj)
 	if err != nil {
-		return nil, fmt.Errorf("namespace is not valid: %v", err)
+		return nil, fmt.Errorf("namespace is not valid: %w", err)
 	}
 	gvk := obj.GetObjectKind().GroupVersionKind()
 	return &nameWithGVK{
@@ -240,19 +242,17 @@ func getNameWithGVK(p CelParams) (*nameWithGVK, error) {
 	}, nil
 }
 
-// Workaround to handle the case where the evaluation is not set
-// TODO remove this workaround after https://github.com/kubernetes/kubernetes/pull/126867 is released
+func isNil(obj runtime.Object) bool {
+	return obj == nil || reflect.ValueOf(obj).IsNil()
+}
+
+// Workaround to handle the case where the evaluation is not set.
+// TODO: remove this workaround after https://github.com/kubernetes/kubernetes/pull/126867 is released.
 func correctValidateResult(result validating.ValidateResult) validating.ValidateResult {
 	for i, decision := range result.Decisions {
 		if decision.Evaluation == "" {
-			result.Decisions[i] = validating.PolicyDecision{
-				Action:     decision.Action,
-				Evaluation: validating.EvalDeny,
-				Message:    decision.Message,
-				Reason:     metav1.StatusReason(decision.Message),
-				Elapsed:    decision.Elapsed,
-			}
 			decision.Evaluation = validating.EvalDeny
+			result.Decisions[i] = decision
 		}
 	}
 	return result

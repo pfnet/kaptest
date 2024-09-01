@@ -11,7 +11,6 @@ import (
 	"gopkg.in/yaml.v2"
 	v1 "k8s.io/api/admissionregistration/v1"
 	kyaml "k8s.io/apimachinery/pkg/util/yaml"
-	"k8s.io/apiserver/pkg/admission/plugin/policy/validating"
 )
 
 const (
@@ -76,7 +75,7 @@ func createRootManifest(targetFilePath string) error {
 	fileName := filepath.Base(targetFilePath)
 	manifestBuf := baseManifest(fileName, targetPolicyNames)
 
-	if err := os.WriteFile(p, manifestBuf, 0o644); err != nil {
+	if err := os.WriteFile(p, manifestBuf, 0o644); err != nil { //nolint:gosec
 		return fmt.Errorf("create %s: %w", rootManifestName, err)
 	}
 
@@ -120,7 +119,7 @@ func baseManifest(targetPath string, policies []string) []byte {
 							Name: "ok",
 						},
 					},
-					Expect: validating.EvalAdmit,
+					Expect: Admit,
 				},
 				{
 					Object: NameWithGVK{
@@ -131,7 +130,7 @@ func baseManifest(targetPath string, policies []string) []byte {
 							Name: "bad",
 						},
 					},
-					Expect: validating.EvalDeny,
+					Expect: Deny,
 				},
 			},
 		})
@@ -153,7 +152,7 @@ func getPolicyNames(targetFilePath string) ([]string, error) {
 			if errors.Is(err, io.EOF) {
 				break
 			}
-			slog.Warn("failed to decode ValidatingAdmissionPolicy", "error", err)
+			slog.Warn("failed to decode", "error", err)
 			continue
 		}
 		if vap.Kind != "ValidatingAdmissionPolicy" {

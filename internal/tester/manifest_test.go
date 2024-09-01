@@ -247,5 +247,4 @@ func TestNameWithGVK_Match(t *testing.T) {
 			}
 		})
 	}
-
 }

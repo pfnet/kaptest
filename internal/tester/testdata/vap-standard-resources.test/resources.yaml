@@ -11,3 +11,39 @@ metadata:
   name: bad
 spec:
   replicas: 6
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: immutable
+  labels:
+    immutable: "true"
+spec:
+  replicas: 4
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mutable
+  labels:
+    immutable: "false"
+spec:
+  replicas: 4
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: deletable
+  labels:
+    deletable: "true"
+spec:
+  replicas: 4
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: non-deletable
+  labels:
+    deletable: "false"
+spec:
+  replicas: 4

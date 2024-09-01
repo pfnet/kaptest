@@ -6,8 +6,33 @@ output:
   print-linter-name: true
 linters:
   enable:
-  - gofmt
-  - goimports
   - unconvert
   - misspell
   - prealloc
+  - bodyclose
+  - errorlint
+  - exhaustive
+  - gci
+  - goconst
+  - gocritic
+  - godot
+  - gofumpt
+  - gosec
+  - makezero
+  - nakedret
+  - nestif
+  - noctx
+  - predeclared
+  - whitespace
+linters-settings:
+  gocognit:
+    min-complexity: 20
+  exhaustive:
+    default-signifies-exhaustive: true
+issues:
+  exclude-rules:
+  - path: _test\.go
+    linters:
+    - errorlint
+    - bodyclose
+    - gosec

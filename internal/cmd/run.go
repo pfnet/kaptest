@@ -2,8 +2,8 @@ package cmd
 
 import (
 	"fmt"
-	"kaptest/internal/tester"
 
+	"github.com/pfnet/kaptest/internal/tester"
 	"github.com/spf13/cobra"
 )
 

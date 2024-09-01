@@ -3,11 +3,11 @@ package tester
 import (
 	"errors"
 	"fmt"
-	"kaptest"
 	"log/slog"
 	"os"
 	"path/filepath"
 
+	"github.com/pfnet/kaptest"
 	"gopkg.in/yaml.v2"
 	v1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -17,10 +17,9 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
-var (
-	ErrTestFail = errors.New("test failed")
-)
+var ErrTestFail = errors.New("test failed")
 
+// Run runs the test cases defined in multiple manifest files.
 func Run(cfg CmdConfig, pathList []string) error {
 	var passCount, failCount int
 	for _, path := range pathList {
@@ -41,7 +40,7 @@ func Run(cfg CmdConfig, pathList []string) error {
 	return nil
 }
 
-// Run runs the test cases defined in the manifest file.
+// runEach runs the test cases defined in a single manifest file.
 func runEach(cfg CmdConfig, manifestPath string) testResultSummary {
 	// Read manifest yaml
 	manifestFile, err := os.ReadFile(manifestPath)
@@ -69,6 +68,7 @@ func runEach(cfg CmdConfig, manifestPath string) testResultSummary {
 		}
 	}
 
+	// Change directory to the base directory of manifest
 	pwd, err := os.Getwd()
 	if err != nil {
 		return testResultSummary{
@@ -77,7 +77,6 @@ func runEach(cfg CmdConfig, manifestPath string) testResultSummary {
 			message:      fmt.Sprintf("FAIL: get current directory: %v", err),
 		}
 	}
-	// Change directory to the base directory of manifest
 	if err := os.Chdir(filepath.Dir(manifestPath)); err != nil {
 		return testResultSummary{
 			manifestPath: manifestPath,
@@ -87,7 +86,7 @@ func runEach(cfg CmdConfig, manifestPath string) testResultSummary {
 	}
 	defer os.Chdir(pwd) //nolint:errcheck
 
-	// Load validatingAdmissionPolicies
+	// Load validatingAdmissionPolicies and other resources
 	loader := NewResourceLoader()
 	loader.LoadVaps(manifests.ValidatingAdmissionPolicies)
 	loader.LoadResources(manifests.Resources)
@@ -102,7 +101,7 @@ func runEach(cfg CmdConfig, manifestPath string) testResultSummary {
 			results = append(results, newPolicyNotFoundResult(tt.Policy))
 			continue
 		}
-		validator := kaptest.NewValidator(*vap)
+		validator := kaptest.NewValidator(vap)
 
 		for _, tc := range tt.Tests {
 			slog.Debug("SETUP: ", "policy", tt.Policy, "expect", tc.Expect, "object", tc.Object.String(), "oldObject", tc.OldObject.String(), "param", tc.Param.String())
@@ -114,6 +113,18 @@ func runEach(cfg CmdConfig, manifestPath string) testResultSummary {
 				continue
 			}
 
+			// Run EvalMatchConditions
+			if vap.Spec.MatchConditions != nil {
+				matchResult := validator.EvalMatchCondition(given)
+				if matchResult.Error != nil {
+					results = append(results, newPolicyEvalErrorResult(tt.Policy, tc, []error{matchResult.Error}))
+					continue
+				}
+				if !matchResult.Matches {
+					results = append(results, newPolicyNotMatchConditionResult(tt.Policy, tc, matchResult.FailedConditionName))
+					continue
+				}
+			}
 			// Run validation
 			slog.Debug("RUN:   ", "policy", tt.Policy, "expect", tc.Expect, "object", tc.Object.String(), "oldObject", tc.OldObject.String(), "param", tc.Param.String())
 			validationResult, err := validator.Validate(given)
@@ -129,7 +140,7 @@ func runEach(cfg CmdConfig, manifestPath string) testResultSummary {
 	return summarize(manifestPath, results, cfg.Verbose)
 }
 
-func newValidationParams(vap *v1.ValidatingAdmissionPolicy, tc TestCase, loader *ResourceLoader) (kaptest.CelParams, []error) {
+func newValidationParams(vap *v1.ValidatingAdmissionPolicy, tc TestCase, loader *ResourceLoader) (kaptest.ValidationParams, []error) {
 	var errs []error
 	var err error
 	var obj, oldObj *unstructured.Unstructured
@@ -160,10 +171,10 @@ func newValidationParams(vap *v1.ValidatingAdmissionPolicy, tc TestCase, loader 
 	userInfo := NewK8sUserInfo(tc.UserInfo)
 
 	if len(errs) > 0 {
-		return kaptest.CelParams{}, errs
+		return kaptest.ValidationParams{}, errs
 	}
 
-	return kaptest.CelParams{
+	return kaptest.ValidationParams{
 		Object:       obj,
 		OldObject:    oldObj,
 		ParamObj:     paramObj,
