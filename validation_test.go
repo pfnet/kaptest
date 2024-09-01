@@ -13,93 +13,6 @@ import (
 	"k8s.io/utils/ptr"
 )
 
-var simplePolicyMessage = "object.spec.replicas should less or equal to 5"
-
-func simplePolicy() *v1.ValidatingAdmissionPolicy {
-	vap := &v1.ValidatingAdmissionPolicy{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "simplePolicy",
-			Namespace: "default",
-		},
-		Spec: v1.ValidatingAdmissionPolicySpec{
-			FailurePolicy: ptr.To(v1.Fail),
-			MatchConstraints: &v1.MatchResources{
-				ResourceRules: []v1.NamedRuleWithOperations{
-					{
-						RuleWithOperations: v1.RuleWithOperations{
-							Rule: v1.Rule{
-								APIGroups:   []string{"apps"},
-								APIVersions: []string{"v1"},
-								Resources:   []string{"deployments"},
-							},
-							Operations: []v1.OperationType{"CREATE", "UPDATE"},
-						},
-					},
-				},
-			},
-			Validations: []v1.Validation{
-				{Expression: "object.spec.replicas <= 5", Message: simplePolicyMessage},
-			},
-		},
-	}
-	vap.GetObjectKind().SetGroupVersionKind(v1.SchemeGroupVersion.WithKind("ValidatingAdmissionPolicy"))
-	return vap
-}
-
-func simpleDeployment(mutator ...func(*appsv1.Deployment)) *appsv1.Deployment {
-	d := &appsv1.Deployment{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "simpleDeployment",
-			Namespace: "default",
-		},
-		Spec: appsv1.DeploymentSpec{
-			Selector: &metav1.LabelSelector{
-				MatchLabels: map[string]string{"app": "nginx"},
-			},
-			Template: corev1.PodTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{
-					Labels: map[string]string{"app": "nginx"},
-				},
-				Spec: corev1.PodSpec{
-					Containers: []corev1.Container{
-						{
-							Name:  "nginx",
-							Image: "nginx:1.14.2",
-							Ports: []corev1.ContainerPort{
-								{ContainerPort: 80},
-							},
-						},
-					},
-				},
-			},
-		},
-	}
-	d.GetObjectKind().SetGroupVersionKind(appsv1.SchemeGroupVersion.WithKind("Deployment"))
-	for _, m := range mutator {
-		m(d)
-	}
-	return d
-}
-
-func withReplicas(replicas int) func(*appsv1.Deployment) {
-	return func(d *appsv1.Deployment) {
-		d.Spec.Replicas = ptr.To(int32(replicas))
-	}
-}
-
-func withLabels(labels map[string]string) func(*appsv1.Deployment) {
-	return func(d *appsv1.Deployment) {
-		d.ObjectMeta.Labels = labels
-	}
-}
-
-func withMatchLabels(labels map[string]string) func(*appsv1.Deployment) {
-	return func(d *appsv1.Deployment) {
-		d.Spec.Selector.MatchLabels = labels
-		d.Spec.Template.ObjectMeta.Labels = labels
-	}
-}
-
 func TestCompilePolicyNotFail(t *testing.T) {
 	compilePolicy(simplePolicy())
 }
@@ -373,5 +286,92 @@ func TestValidator_EvalMatchCondition(t *testing.T) {
 				t.Errorf("decision message is expected to be %s, but got %s", simplePolicyMessage, decision.Message)
 			}
 		})
+	}
+}
+
+var simplePolicyMessage = "object.spec.replicas should less or equal to 5"
+
+func simplePolicy() *v1.ValidatingAdmissionPolicy {
+	vap := &v1.ValidatingAdmissionPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "simplePolicy",
+			Namespace: "default",
+		},
+		Spec: v1.ValidatingAdmissionPolicySpec{
+			FailurePolicy: ptr.To(v1.Fail),
+			MatchConstraints: &v1.MatchResources{
+				ResourceRules: []v1.NamedRuleWithOperations{
+					{
+						RuleWithOperations: v1.RuleWithOperations{
+							Rule: v1.Rule{
+								APIGroups:   []string{"apps"},
+								APIVersions: []string{"v1"},
+								Resources:   []string{"deployments"},
+							},
+							Operations: []v1.OperationType{"CREATE", "UPDATE"},
+						},
+					},
+				},
+			},
+			Validations: []v1.Validation{
+				{Expression: "object.spec.replicas <= 5", Message: simplePolicyMessage},
+			},
+		},
+	}
+	vap.GetObjectKind().SetGroupVersionKind(v1.SchemeGroupVersion.WithKind("ValidatingAdmissionPolicy"))
+	return vap
+}
+
+func simpleDeployment(mutator ...func(*appsv1.Deployment)) *appsv1.Deployment {
+	d := &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "simpleDeployment",
+			Namespace: "default",
+		},
+		Spec: appsv1.DeploymentSpec{
+			Selector: &metav1.LabelSelector{
+				MatchLabels: map[string]string{"app": "nginx"},
+			},
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{"app": "nginx"},
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name:  "nginx",
+							Image: "nginx:1.14.2",
+							Ports: []corev1.ContainerPort{
+								{ContainerPort: 80},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	d.GetObjectKind().SetGroupVersionKind(appsv1.SchemeGroupVersion.WithKind("Deployment"))
+	for _, m := range mutator {
+		m(d)
+	}
+	return d
+}
+
+func withReplicas(replicas int) func(*appsv1.Deployment) {
+	return func(d *appsv1.Deployment) {
+		d.Spec.Replicas = ptr.To(int32(replicas))
+	}
+}
+
+func withLabels(labels map[string]string) func(*appsv1.Deployment) {
+	return func(d *appsv1.Deployment) {
+		d.ObjectMeta.Labels = labels
+	}
+}
+
+func withMatchLabels(labels map[string]string) func(*appsv1.Deployment) {
+	return func(d *appsv1.Deployment) {
+		d.Spec.Selector.MatchLabels = labels
+		d.Spec.Template.ObjectMeta.Labels = labels
 	}
 }
