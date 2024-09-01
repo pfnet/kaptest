@@ -26,8 +26,8 @@ type Validator interface {
 }
 
 type validator struct {
+	policy    *v1.ValidatingAdmissionPolicy
 	validator validating.Validator
-	policy    v1.ValidatingAdmissionPolicy
 	matcher   matchconditions.Matcher
 }
 
@@ -51,13 +51,13 @@ func (p ValidationParams) Operation() admission.Operation {
 }
 
 // NewValidator compiles the provided ValidatingAdmissionPolicy and generates Validator.
-func NewValidator(policy v1.ValidatingAdmissionPolicy) *validator {
+func NewValidator(policy *v1.ValidatingAdmissionPolicy) *validator {
 	v, m := compilePolicy(policy)
 	return &validator{validator: v, policy: policy, matcher: m}
 }
 
 // Original: https://github.com/kubernetes/kubernetes/blob/8bd6c10ba5833369fb6582587b77de8f8b51c371/staging/src/k8s.io/apiserver/pkg/admission/plugin/policy/validating/plugin.go#L121-L157
-func compilePolicy(policy v1.ValidatingAdmissionPolicy) (validating.Validator, matchconditions.Matcher) {
+func compilePolicy(policy *v1.ValidatingAdmissionPolicy) (validating.Validator, matchconditions.Matcher) {
 	hasParam := false
 	if policy.Spec.ParamKind != nil {
 		hasParam = true

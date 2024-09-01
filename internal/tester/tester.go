@@ -102,7 +102,7 @@ func runEach(cfg CmdConfig, manifestPath string) testResultSummary {
 			results = append(results, newPolicyNotFoundResult(tt.Policy))
 			continue
 		}
-		validator := kaptest.NewValidator(*vap)
+		validator := kaptest.NewValidator(vap)
 
 		for _, tc := range tt.Tests {
 			slog.Debug("SETUP: ", "policy", tt.Policy, "expect", tc.Expect, "object", tc.Object.String(), "oldObject", tc.OldObject.String(), "param", tc.Param.String())

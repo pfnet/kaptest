@@ -53,7 +53,7 @@ var simpleDeployment = &appsv1.Deployment{
 }
 
 func TestSimplePolicy(t *testing.T) {
-	validator := kaptest.NewValidator(simplePolicy)
+	validator := kaptest.NewValidator(&simplePolicy)
 	result, _ := validator.Validate(kaptest.ValidationParams{Object: simpleDeployment})
 	decision := result.Decisions[0]
 	expectedResult := validating.EvalDeny

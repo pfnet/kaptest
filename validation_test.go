@@ -10,89 +10,109 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apiserver/pkg/admission/plugin/policy/validating"
 	"k8s.io/apiserver/pkg/authentication/user"
+	"k8s.io/utils/ptr"
 )
 
-var failurePolicyFail = v1.Fail
 var simplePolicyMessage = "object.spec.replicas should less or equal to 5"
-var simplePolicy = v1.ValidatingAdmissionPolicy{
-	TypeMeta: metav1.TypeMeta{
-		Kind:       "ValidatingAdmissionPolicy",
-		APIVersion: "admissionregistration.k8s.io/v1beta1",
-	},
-	ObjectMeta: metav1.ObjectMeta{
-		Name:      "simplePolicy",
-		Namespace: "default",
-	},
-	Spec: v1.ValidatingAdmissionPolicySpec{
-		FailurePolicy: &failurePolicyFail,
-		MatchConstraints: &v1.MatchResources{
-			ResourceRules: []v1.NamedRuleWithOperations{
-				{
-					RuleWithOperations: v1.RuleWithOperations{
-						Rule: v1.Rule{
-							APIGroups:   []string{"apps"},
-							APIVersions: []string{"v1"},
-							Resources:   []string{"deployments"},
-						},
-						Operations: []v1.OperationType{"CREATE", "UPDATE"},
-					},
-				},
-			},
-		},
-		Validations: []v1.Validation{
-			{Expression: "object.spec.replicas <= 5", Message: simplePolicyMessage},
-		},
-	},
-}
 
-var simpleDeployment = &appsv1.Deployment{
-	ObjectMeta: metav1.ObjectMeta{
-		Name:      "simpleDeployment",
-		Namespace: "default",
-	},
-	Spec: appsv1.DeploymentSpec{
-		Selector: &metav1.LabelSelector{
-			MatchLabels: map[string]string{"app": "nginx"},
+func simplePolicy() *v1.ValidatingAdmissionPolicy {
+	vap := &v1.ValidatingAdmissionPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "simplePolicy",
+			Namespace: "default",
 		},
-		Template: corev1.PodTemplateSpec{
-			ObjectMeta: metav1.ObjectMeta{
-				Labels: map[string]string{"app": "nginx"},
-			},
-			Spec: corev1.PodSpec{
-				Containers: []corev1.Container{
+		Spec: v1.ValidatingAdmissionPolicySpec{
+			FailurePolicy: ptr.To(v1.Fail),
+			MatchConstraints: &v1.MatchResources{
+				ResourceRules: []v1.NamedRuleWithOperations{
 					{
-						Name:  "nginx",
-						Image: "nginx:1.14.2",
-						Ports: []corev1.ContainerPort{
-							{ContainerPort: 80},
+						RuleWithOperations: v1.RuleWithOperations{
+							Rule: v1.Rule{
+								APIGroups:   []string{"apps"},
+								APIVersions: []string{"v1"},
+								Resources:   []string{"deployments"},
+							},
+							Operations: []v1.OperationType{"CREATE", "UPDATE"},
+						},
+					},
+				},
+			},
+			Validations: []v1.Validation{
+				{Expression: "object.spec.replicas <= 5", Message: simplePolicyMessage},
+			},
+		},
+	}
+	vap.GetObjectKind().SetGroupVersionKind(v1.SchemeGroupVersion.WithKind("ValidatingAdmissionPolicy"))
+	return vap
+}
+
+func simpleDeployment(mutator ...func(*appsv1.Deployment)) *appsv1.Deployment {
+	d := &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "simpleDeployment",
+			Namespace: "default",
+		},
+		Spec: appsv1.DeploymentSpec{
+			Selector: &metav1.LabelSelector{
+				MatchLabels: map[string]string{"app": "nginx"},
+			},
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{"app": "nginx"},
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name:  "nginx",
+							Image: "nginx:1.14.2",
+							Ports: []corev1.ContainerPort{
+								{ContainerPort: 80},
+							},
 						},
 					},
 				},
 			},
 		},
-	},
+	}
+	d.GetObjectKind().SetGroupVersionKind(appsv1.SchemeGroupVersion.WithKind("Deployment"))
+	for _, m := range mutator {
+		m(d)
+	}
+	return d
 }
 
-func deploymentWithReplicas(deployment *appsv1.Deployment, replicas int) *appsv1.Deployment {
-	replicasInt32 := int32(replicas)
-	dep := deployment.DeepCopy()
-	dep.Spec.Replicas = &replicasInt32
-	return dep
+func withReplicas(replicas int) func(*appsv1.Deployment) {
+	return func(d *appsv1.Deployment) {
+		d.Spec.Replicas = ptr.To(int32(replicas))
+	}
+}
+
+func withLabels(labels map[string]string) func(*appsv1.Deployment) {
+	return func(d *appsv1.Deployment) {
+		d.ObjectMeta.Labels = labels
+	}
+}
+
+func withMatchLabels(labels map[string]string) func(*appsv1.Deployment) {
+	return func(d *appsv1.Deployment) {
+		d.Spec.Selector.MatchLabels = labels
+		d.Spec.Template.ObjectMeta.Labels = labels
+	}
 }
 
 func TestCompilePolicyNotFail(t *testing.T) {
-	compilePolicy(simplePolicy)
+	compilePolicy(simplePolicy())
 }
 
 func TestValidator_Validate_SimplePolicy(t *testing.T) {
-	validator := NewValidator(simplePolicy)
+	validator := NewValidator(simplePolicy())
 	cases := []struct {
 		name           string
 		object         runtime.Object
 		expectedResult validating.PolicyDecisionEvaluation
 	}{
-		{"deployment with replica 5", deploymentWithReplicas(simpleDeployment, 5), validating.EvalAdmit},
-		{"deployment with replica 6", deploymentWithReplicas(simpleDeployment, 6), validating.EvalDeny},
+		{"deployment with replica 5", simpleDeployment(withReplicas(5)), validating.EvalAdmit},
+		{"deployment with replica 6", simpleDeployment(withReplicas(6)), validating.EvalDeny},
 	}
 
 	for _, tt := range cases {
@@ -116,15 +136,15 @@ func TestValidator_Validate_SimplePolicy(t *testing.T) {
 }
 
 func TestValidator_Validate_WithVariable(t *testing.T) {
-	simpleValidator := NewValidator(simplePolicy)
-	policyWithVar := simplePolicy.DeepCopy()
+	simpleValidator := NewValidator(simplePolicy())
+	policyWithVar := simplePolicy()
 	policyWithVar.Spec.Validations = []v1.Validation{
 		{Expression: "variables.replicas <= 5", Message: simplePolicyMessage},
 	}
 	policyWithVar.Spec.Variables = []v1.Variable{
 		{Name: "replicas", Expression: "has(object.spec.replicas) ? object.spec.replicas : 1"},
 	}
-	validatorWithVar := NewValidator(*policyWithVar)
+	validatorWithVar := NewValidator(policyWithVar)
 	cases := []struct {
 		name            string
 		validator       *validator
@@ -132,10 +152,10 @@ func TestValidator_Validate_WithVariable(t *testing.T) {
 		expectedResult  validating.PolicyDecisionEvaluation
 		expectedMessage string
 	}{
-		{"replica: null with simple validator", simpleValidator, simpleDeployment, validating.EvalError, "expression 'object.spec.replicas <= 5' resulted in error: no such key: replicas"},
-		{"replica: null with validatorWithVar", validatorWithVar, simpleDeployment, validating.EvalAdmit, ""},
-		{"replica: 5 with validatorWithVar", validatorWithVar, deploymentWithReplicas(simpleDeployment, 5), validating.EvalAdmit, ""},
-		{"replica: 6 with validatorWithVar", validatorWithVar, deploymentWithReplicas(simpleDeployment, 6), validating.EvalDeny, simplePolicyMessage},
+		{"replica: null with simple validator", simpleValidator, simpleDeployment(), validating.EvalError, "expression 'object.spec.replicas <= 5' resulted in error: no such key: replicas"},
+		{"replica: null with validatorWithVar", validatorWithVar, simpleDeployment(), validating.EvalAdmit, ""},
+		{"replica: 5 with validatorWithVar", validatorWithVar, simpleDeployment(withReplicas(5)), validating.EvalAdmit, ""},
+		{"replica: 6 with validatorWithVar", validatorWithVar, simpleDeployment(withReplicas(6)), validating.EvalDeny, simplePolicyMessage},
 	}
 
 	for _, tt := range cases {
@@ -166,7 +186,7 @@ func TestValidator_Validate_WithParam(t *testing.T) {
 	}
 	messageExpression := "'object.spec.replicas should less or equal to ' + params.data.maxReplicas"
 	expectedMessage := "object.spec.replicas should less or equal to 8"
-	policyWithParam := simplePolicy.DeepCopy()
+	policyWithParam := simplePolicy()
 	policyWithParam.Spec.Validations = []v1.Validation{
 		{Expression: "object.spec.replicas <= int(params.data.maxReplicas)", MessageExpression: messageExpression},
 	}
@@ -174,15 +194,15 @@ func TestValidator_Validate_WithParam(t *testing.T) {
 		APIVersion: "v1",
 		Kind:       "ConfigMap",
 	}
-	validator := NewValidator(*policyWithParam)
+	validator := NewValidator(policyWithParam)
 
 	cases := []struct {
 		name           string
 		object         runtime.Object
 		expectedResult validating.PolicyDecisionEvaluation
 	}{
-		{"deployment with replica 8", deploymentWithReplicas(simpleDeployment, 8), validating.EvalAdmit},
-		{"deployment with replica 9", deploymentWithReplicas(simpleDeployment, 9), validating.EvalDeny},
+		{"deployment with replica 8", simpleDeployment(withReplicas(8)), validating.EvalAdmit},
+		{"deployment with replica 9", simpleDeployment(withReplicas(9)), validating.EvalDeny},
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
@@ -205,12 +225,12 @@ func TestValidator_Validate_WithParam(t *testing.T) {
 }
 
 func TestValidator_Validate_WithUserInfo(t *testing.T) {
-	policyWithUserInfo := simplePolicy.DeepCopy()
+	policyWithUserInfo := simplePolicy()
 	message := "user must be a member of admin"
 	policyWithUserInfo.Spec.Validations = []v1.Validation{
 		{Expression: "'admin' in request.userInfo.groups", Message: message},
 	}
-	validator := NewValidator(*policyWithUserInfo)
+	validator := NewValidator(policyWithUserInfo)
 	cases := []struct {
 		name           string
 		group          string
@@ -222,7 +242,7 @@ func TestValidator_Validate_WithUserInfo(t *testing.T) {
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
 			result, err := validator.Validate(ValidationParams{
-				Object: simpleDeployment, UserInfo: &user.DefaultInfo{Groups: []string{tt.group}},
+				Object: simpleDeployment(), UserInfo: &user.DefaultInfo{Groups: []string{tt.group}},
 			})
 			if err != nil {
 				t.Errorf("validate finished with error: %v", err)
@@ -242,18 +262,18 @@ func TestValidator_Validate_WithUserInfo(t *testing.T) {
 }
 
 func TestValidator_Validate_DeletionCase(t *testing.T) {
-	policyAboutDeletion := simplePolicy.DeepCopy()
+	policyAboutDeletion := simplePolicy()
 	policyAboutDeletion.Spec.Validations = []v1.Validation{
 		{Expression: "oldObject.spec.replicas <= 5", Message: simplePolicyMessage},
 	}
-	validator := NewValidator(*policyAboutDeletion)
+	validator := NewValidator(policyAboutDeletion)
 	cases := []struct {
 		name           string
 		oldObject      runtime.Object
 		expectedResult validating.PolicyDecisionEvaluation
 	}{
-		{"deployment with replica 5", deploymentWithReplicas(simpleDeployment, 5), validating.EvalAdmit},
-		{"deployment with replica 6", deploymentWithReplicas(simpleDeployment, 6), validating.EvalDeny},
+		{"deployment with replica 5", simpleDeployment(withReplicas(5)), validating.EvalAdmit},
+		{"deployment with replica 6", simpleDeployment(withReplicas(6)), validating.EvalDeny},
 	}
 
 	for _, tt := range cases {
@@ -277,13 +297,13 @@ func TestValidator_Validate_DeletionCase(t *testing.T) {
 }
 
 func TestValidator_EvalMatchCondition(t *testing.T) {
-	policyWithMatchCondition := simplePolicy.DeepCopy()
+	policyWithMatchCondition := simplePolicy()
 	policyWithMatchCondition.Spec.MatchConditions = []v1.MatchCondition{
 		{Name: "app label matches", Expression: "object.metadata.labels.app.startsWith('match')"},
 		{Name: "app label is same as matchLabels.app", Expression: "object.spec.selector.matchLabels.app == object.metadata.labels.app"},
 	}
 
-	appLabelNotMatch := simpleDeployment.DeepCopy()
+	appLabelNotMatch := simpleDeployment()
 	appLabelNotMatch.ObjectMeta.Labels = map[string]string{
 		"app": "notMatchApp",
 	}
@@ -291,7 +311,7 @@ func TestValidator_EvalMatchCondition(t *testing.T) {
 		"app": "notMatchApp",
 	}
 
-	matchLabelsNotMatch := simpleDeployment.DeepCopy()
+	matchLabelsNotMatch := simpleDeployment()
 	matchLabelsNotMatch.ObjectMeta.Labels = map[string]string{
 		"app": "matchApp",
 	}
@@ -299,18 +319,13 @@ func TestValidator_EvalMatchCondition(t *testing.T) {
 		"app": "different from metadata.labels.app",
 	}
 
-	deploymentMatch := simpleDeployment.DeepCopy()
-	deploymentMatch.ObjectMeta.Labels = map[string]string{
+	matchLabels := map[string]string{
 		"app": "matchApp",
 	}
-	deploymentMatch.Spec.Selector.MatchLabels = map[string]string{
-		"app": "matchApp",
-	}
+	goodDeployment := simpleDeployment(withReplicas(5), withLabels(matchLabels), withMatchLabels(matchLabels))
+	badDeployment := simpleDeployment(withReplicas(6), withLabels(matchLabels), withMatchLabels(matchLabels))
 
-	badDeployment := deploymentWithReplicas(deploymentMatch, 6)
-	goodDeployment := deploymentWithReplicas(deploymentMatch, 5)
-
-	validator := NewValidator(*policyWithMatchCondition)
+	validator := NewValidator(policyWithMatchCondition)
 
 	cases := []struct {
 		name                string
