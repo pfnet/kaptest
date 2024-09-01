@@ -84,7 +84,7 @@ func TestCompilePolicyNotFail(t *testing.T) {
 	compilePolicy(simplePolicy)
 }
 
-func TestSimplePolicy(t *testing.T) {
+func TestValidator_Validate_SimplePolicy(t *testing.T) {
 	validator := NewValidator(simplePolicy)
 	cases := []struct {
 		name           string
@@ -115,7 +115,7 @@ func TestSimplePolicy(t *testing.T) {
 	}
 }
 
-func TestPolicyWithVariable(t *testing.T) {
+func TestValidator_Validate_WithVariable(t *testing.T) {
 	simpleValidator := NewValidator(simplePolicy)
 	policyWithVar := simplePolicy.DeepCopy()
 	policyWithVar.Spec.Validations = []v1.Validation{
@@ -158,7 +158,125 @@ func TestPolicyWithVariable(t *testing.T) {
 	}
 }
 
-func TestMatchCondition(t *testing.T) {
+func TestValidator_Validate_WithParam(t *testing.T) {
+	conf := &corev1.ConfigMap{
+		Data: map[string]string{
+			"maxReplicas": "8",
+		},
+	}
+	messageExpression := "'object.spec.replicas should less or equal to ' + params.data.maxReplicas"
+	expectedMessage := "object.spec.replicas should less or equal to 8"
+	policyWithParam := simplePolicy.DeepCopy()
+	policyWithParam.Spec.Validations = []v1.Validation{
+		{Expression: "object.spec.replicas <= int(params.data.maxReplicas)", MessageExpression: messageExpression},
+	}
+	policyWithParam.Spec.ParamKind = &v1.ParamKind{
+		APIVersion: "v1",
+		Kind:       "ConfigMap",
+	}
+	validator := NewValidator(*policyWithParam)
+
+	cases := []struct {
+		name           string
+		object         runtime.Object
+		expectedResult validating.PolicyDecisionEvaluation
+	}{
+		{"deployment with replica 8", deploymentWithReplicas(simpleDeployment, 8), validating.EvalAdmit},
+		{"deployment with replica 9", deploymentWithReplicas(simpleDeployment, 9), validating.EvalDeny},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := validator.Validate(ValidationParams{Object: tt.object, ParamObj: conf})
+			if err != nil {
+				t.Errorf("validate finished with error: %v", err)
+			}
+			if len(result.Decisions) != 1 {
+				t.Errorf("decision length is expected to be 1")
+			}
+			decision := result.Decisions[0]
+			if tt.expectedResult != decision.Evaluation {
+				t.Errorf("decision evaluation is expected to be %s, but got %s", tt.expectedResult, decision.Evaluation)
+			}
+			if decision.Action == validating.ActionDeny && decision.Message != expectedMessage {
+				t.Errorf("decision message is expected to be %s, but got %s", expectedMessage, decision.Message)
+			}
+		})
+	}
+}
+
+func TestValidator_Validate_WithUserInfo(t *testing.T) {
+	policyWithUserInfo := simplePolicy.DeepCopy()
+	message := "user must be a member of admin"
+	policyWithUserInfo.Spec.Validations = []v1.Validation{
+		{Expression: "'admin' in request.userInfo.groups", Message: message},
+	}
+	validator := NewValidator(*policyWithUserInfo)
+	cases := []struct {
+		name           string
+		group          string
+		expectedResult validating.PolicyDecisionEvaluation
+	}{
+		{"group is member, not admin", "member", validating.EvalDeny},
+		{"group is admin", "admin", validating.EvalAdmit},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := validator.Validate(ValidationParams{
+				Object: simpleDeployment, UserInfo: &user.DefaultInfo{Groups: []string{tt.group}},
+			})
+			if err != nil {
+				t.Errorf("validate finished with error: %v", err)
+			}
+			if len(result.Decisions) != 1 {
+				t.Errorf("decision length is expected to be 1")
+			}
+			decision := result.Decisions[0]
+			if tt.expectedResult != decision.Evaluation {
+				t.Errorf("decision evaluation is expected to be %s, but got %s", tt.expectedResult, decision.Evaluation)
+			}
+			if decision.Action == validating.ActionDeny && decision.Message != message {
+				t.Errorf("decision message is expected to be %s, but got %s", message, decision.Message)
+			}
+		})
+	}
+}
+
+func TestValidator_Validate_DeletionCase(t *testing.T) {
+	policyAboutDeletion := simplePolicy.DeepCopy()
+	policyAboutDeletion.Spec.Validations = []v1.Validation{
+		{Expression: "oldObject.spec.replicas <= 5", Message: simplePolicyMessage},
+	}
+	validator := NewValidator(*policyAboutDeletion)
+	cases := []struct {
+		name           string
+		oldObject      runtime.Object
+		expectedResult validating.PolicyDecisionEvaluation
+	}{
+		{"deployment with replica 5", deploymentWithReplicas(simpleDeployment, 5), validating.EvalAdmit},
+		{"deployment with replica 6", deploymentWithReplicas(simpleDeployment, 6), validating.EvalDeny},
+	}
+
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := validator.Validate(ValidationParams{OldObject: tt.oldObject})
+			if err != nil {
+				t.Errorf("validate finished with error: %v", err)
+			}
+			if len(result.Decisions) != 1 {
+				t.Errorf("decision length is expected to be 1")
+			}
+			decision := result.Decisions[0]
+			if tt.expectedResult != decision.Evaluation {
+				t.Errorf("decision evaluation is expected to be %s, but got %s", tt.expectedResult, decision.Evaluation)
+			}
+			if decision.Action == validating.ActionDeny && decision.Message != simplePolicyMessage {
+				t.Errorf("decision message is expected to be %s, but got %s", simplePolicyMessage, decision.Message)
+			}
+		})
+	}
+}
+
+func TestValidator_EvalMatchCondition(t *testing.T) {
 	policyWithMatchCondition := simplePolicy.DeepCopy()
 	policyWithMatchCondition.Spec.MatchConditions = []v1.MatchCondition{
 		{Name: "app label matches", Expression: "object.metadata.labels.app.startsWith('match')"},
@@ -228,124 +346,6 @@ func TestMatchCondition(t *testing.T) {
 					t.Errorf("object is NOT expected to match but got decisions: %v", result.Decisions)
 				}
 				return
-			}
-			if len(result.Decisions) != 1 {
-				t.Errorf("decision length is expected to be 1")
-			}
-			decision := result.Decisions[0]
-			if tt.expectedResult != decision.Evaluation {
-				t.Errorf("decision evaluation is expected to be %s, but got %s", tt.expectedResult, decision.Evaluation)
-			}
-			if decision.Action == validating.ActionDeny && decision.Message != simplePolicyMessage {
-				t.Errorf("decision message is expected to be %s, but got %s", simplePolicyMessage, decision.Message)
-			}
-		})
-	}
-}
-
-func TestPolicyWithParam(t *testing.T) {
-	conf := &corev1.ConfigMap{
-		Data: map[string]string{
-			"maxReplicas": "8",
-		},
-	}
-	messageExpression := "'object.spec.replicas should less or equal to ' + params.data.maxReplicas"
-	expectedMessage := "object.spec.replicas should less or equal to 8"
-	policyWithParam := simplePolicy.DeepCopy()
-	policyWithParam.Spec.Validations = []v1.Validation{
-		{Expression: "object.spec.replicas <= int(params.data.maxReplicas)", MessageExpression: messageExpression},
-	}
-	policyWithParam.Spec.ParamKind = &v1.ParamKind{
-		APIVersion: "v1",
-		Kind:       "ConfigMap",
-	}
-	validator := NewValidator(*policyWithParam)
-
-	cases := []struct {
-		name           string
-		object         runtime.Object
-		expectedResult validating.PolicyDecisionEvaluation
-	}{
-		{"deployment with replica 8", deploymentWithReplicas(simpleDeployment, 8), validating.EvalAdmit},
-		{"deployment with replica 9", deploymentWithReplicas(simpleDeployment, 9), validating.EvalDeny},
-	}
-	for _, tt := range cases {
-		t.Run(tt.name, func(t *testing.T) {
-			result, err := validator.Validate(ValidationParams{Object: tt.object, ParamObj: conf})
-			if err != nil {
-				t.Errorf("validate finished with error: %v", err)
-			}
-			if len(result.Decisions) != 1 {
-				t.Errorf("decision length is expected to be 1")
-			}
-			decision := result.Decisions[0]
-			if tt.expectedResult != decision.Evaluation {
-				t.Errorf("decision evaluation is expected to be %s, but got %s", tt.expectedResult, decision.Evaluation)
-			}
-			if decision.Action == validating.ActionDeny && decision.Message != expectedMessage {
-				t.Errorf("decision message is expected to be %s, but got %s", expectedMessage, decision.Message)
-			}
-		})
-	}
-}
-
-func TestPolicyWithUserInfo(t *testing.T) {
-	policyWithUserInfo := simplePolicy.DeepCopy()
-	message := "user must be a member of admin"
-	policyWithUserInfo.Spec.Validations = []v1.Validation{
-		{Expression: "'admin' in request.userInfo.groups", Message: message},
-	}
-	validator := NewValidator(*policyWithUserInfo)
-	cases := []struct {
-		name           string
-		group          string
-		expectedResult validating.PolicyDecisionEvaluation
-	}{
-		{"group is member, not admin", "member", validating.EvalDeny},
-		{"group is admin", "admin", validating.EvalAdmit},
-	}
-	for _, tt := range cases {
-		t.Run(tt.name, func(t *testing.T) {
-			result, err := validator.Validate(ValidationParams{
-				Object: simpleDeployment, UserInfo: &user.DefaultInfo{Groups: []string{tt.group}},
-			})
-			if err != nil {
-				t.Errorf("validate finished with error: %v", err)
-			}
-			if len(result.Decisions) != 1 {
-				t.Errorf("decision length is expected to be 1")
-			}
-			decision := result.Decisions[0]
-			if tt.expectedResult != decision.Evaluation {
-				t.Errorf("decision evaluation is expected to be %s, but got %s", tt.expectedResult, decision.Evaluation)
-			}
-			if decision.Action == validating.ActionDeny && decision.Message != message {
-				t.Errorf("decision message is expected to be %s, but got %s", message, decision.Message)
-			}
-		})
-	}
-}
-
-func TestDeletionCase(t *testing.T) {
-	policyAboutDeletion := simplePolicy.DeepCopy()
-	policyAboutDeletion.Spec.Validations = []v1.Validation{
-		{Expression: "oldObject.spec.replicas <= 5", Message: simplePolicyMessage},
-	}
-	validator := NewValidator(*policyAboutDeletion)
-	cases := []struct {
-		name           string
-		oldObject      runtime.Object
-		expectedResult validating.PolicyDecisionEvaluation
-	}{
-		{"deployment with replica 5", deploymentWithReplicas(simpleDeployment, 5), validating.EvalAdmit},
-		{"deployment with replica 6", deploymentWithReplicas(simpleDeployment, 6), validating.EvalDeny},
-	}
-
-	for _, tt := range cases {
-		t.Run(tt.name, func(t *testing.T) {
-			result, err := validator.Validate(ValidationParams{OldObject: tt.oldObject})
-			if err != nil {
-				t.Errorf("validate finished with error: %v", err)
 			}
 			if len(result.Decisions) != 1 {
 				t.Errorf("decision length is expected to be 1")
