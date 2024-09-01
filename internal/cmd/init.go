@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"github.com/pfnet/kaptest/internal/tester"
-
 	"github.com/spf13/cobra"
 )
 

@@ -33,7 +33,7 @@ func TestRunInit(t *testing.T) {
 		{
 			name: "ok: test dir already exists",
 			setup: func(tmpDir string, manifestFile io.Writer) {
-				mustNil(t, os.Mkdir(filepath.Join(tmpDir, testDir), 0755))
+				mustNil(t, os.Mkdir(filepath.Join(tmpDir, testDir), 0o755))
 			},
 		},
 		{
@@ -97,8 +97,8 @@ func TestRunInit(t *testing.T) {
 		manifestPath := filepath.Join(dir, manifestFile)
 		f, _ := os.Create(manifestPath)
 		mustNil(t, y.PrintObj(sampleValidatingAdmissionPolicy(), f))
-		mustNil(t, os.Mkdir(filepath.Join(dir, testDir), 0755))
-		mustNil(t, os.WriteFile(filepath.Join(dir, testDir, rootManifestName), []byte{}, 0644))
+		mustNil(t, os.Mkdir(filepath.Join(dir, testDir), 0o755))
+		mustNil(t, os.WriteFile(filepath.Join(dir, testDir, rootManifestName), []byte{}, 0o644)) //nolint:gosec
 
 		if err := RunInit(CmdConfig{Verbose: true}, manifestPath); err == nil {
 			t.Error("RunInit() = nil, want error")

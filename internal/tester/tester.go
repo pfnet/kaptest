@@ -8,7 +8,6 @@ import (
 	"path/filepath"
 
 	"github.com/pfnet/kaptest"
-
 	"gopkg.in/yaml.v2"
 	v1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -18,9 +17,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
-var (
-	ErrTestFail = errors.New("test failed")
-)
+var ErrTestFail = errors.New("test failed")
 
 // Run runs the test cases defined in multiple manifest files.
 func Run(cfg CmdConfig, pathList []string) error {

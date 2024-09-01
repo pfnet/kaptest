@@ -12,11 +12,10 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/apiserver/pkg/admission/plugin/cel"
-	"k8s.io/apiserver/pkg/authentication/user"
-
 	"k8s.io/apiserver/pkg/admission/plugin/policy/validating"
 	"k8s.io/apiserver/pkg/admission/plugin/webhook/matchconditions"
 	celconfig "k8s.io/apiserver/pkg/apis/cel"
+	"k8s.io/apiserver/pkg/authentication/user"
 	"k8s.io/apiserver/pkg/cel/environment"
 )
 
@@ -229,11 +228,11 @@ func getNameWithGVK(p ValidationParams) (*nameWithGVK, error) {
 	namer := meta.NewAccessor()
 	name, err := namer.Name(obj)
 	if err != nil {
-		return nil, fmt.Errorf("name is not valid: %v", err)
+		return nil, fmt.Errorf("name is not valid: %w", err)
 	}
 	namespaceName, err := namer.Namespace(obj)
 	if err != nil {
-		return nil, fmt.Errorf("namespace is not valid: %v", err)
+		return nil, fmt.Errorf("namespace is not valid: %w", err)
 	}
 	gvk := obj.GetObjectKind().GroupVersionKind()
 	return &nameWithGVK{
@@ -248,7 +247,7 @@ func isNil(obj runtime.Object) bool {
 }
 
 // Workaround to handle the case where the evaluation is not set.
-// TODO: remove this workaround after https://github.com/kubernetes/kubernetes/pull/126867 is released
+// TODO: remove this workaround after https://github.com/kubernetes/kubernetes/pull/126867 is released.
 func correctValidateResult(result validating.ValidateResult) validating.ValidateResult {
 	for i, decision := range result.Decisions {
 		if decision.Evaluation == "" {

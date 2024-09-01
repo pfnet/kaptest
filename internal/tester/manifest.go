@@ -146,7 +146,7 @@ func NewNameWithGVK(gvk schema.GroupVersionKind, namespacedName NamespacedName) 
 	}
 }
 
-// UserInfo is a struct to represent user information to populate request.userInfo
+// UserInfo is a struct to represent user information to populate request.userInfo.
 type UserInfo struct {
 	Name   string   `yaml:"name"`
 	Groups []string `yaml:"groups"`

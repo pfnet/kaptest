@@ -75,7 +75,7 @@ func createRootManifest(targetFilePath string) error {
 	fileName := filepath.Base(targetFilePath)
 	manifestBuf := baseManifest(fileName, targetPolicyNames)
 
-	if err := os.WriteFile(p, manifestBuf, 0o644); err != nil {
+	if err := os.WriteFile(p, manifestBuf, 0o644); err != nil { //nolint:gosec
 		return fmt.Errorf("create %s: %w", rootManifestName, err)
 	}
 

@@ -56,7 +56,7 @@ func (r *policyEvalResult) String(verbose bool) string {
 	}
 
 	summary += fmt.Sprintf(": %s", r.Policy)
-	if r.TestCase.Object.IsValid() && r.TestCase.OldObject.IsValid() {
+	if r.TestCase.Object.IsValid() && r.TestCase.OldObject.IsValid() { //nolint:gocritic
 		summary += fmt.Sprintf(" - (UPDATE) %s -> %s", r.TestCase.OldObject.String(), r.TestCase.Object.NamespacedName.String())
 	} else if r.TestCase.Object.IsValid() {
 		summary += fmt.Sprintf(" - (CREATE) %s", r.TestCase.Object.String())
@@ -117,7 +117,7 @@ func (r *policyNotMatchConditionResult) String(verbose bool) string {
 	}
 
 	summary += fmt.Sprintf(": %s", r.Policy)
-	if r.TestCase.Object.IsValid() && r.TestCase.OldObject.IsValid() {
+	if r.TestCase.Object.IsValid() && r.TestCase.OldObject.IsValid() { //nolint:gocritic
 		summary += fmt.Sprintf(" - (UPDATE) %s -> %s", r.TestCase.OldObject.String(), r.TestCase.Object.NamespacedName.String())
 	} else if r.TestCase.Object.IsValid() {
 		summary += fmt.Sprintf(" - (CREATE) %s", r.TestCase.Object.String())
@@ -181,7 +181,7 @@ func (r *policyEvalErrorResult) Pass() bool {
 
 func (r *policyEvalErrorResult) String(verbose bool) string {
 	summary := fmt.Sprintf("FAIL: %s", r.Policy)
-	if r.TestCase.Object.IsValid() && r.TestCase.OldObject.IsValid() {
+	if r.TestCase.Object.IsValid() && r.TestCase.OldObject.IsValid() { //nolint:gocritic
 		summary += fmt.Sprintf(" - %s -> %s ", r.TestCase.Object.String(), r.TestCase.OldObject.NamespacedName.String())
 	} else if r.TestCase.Object.IsValid() {
 		summary += fmt.Sprintf(" - %s", r.TestCase.Object.String())
