@@ -13,7 +13,7 @@ import (
 	"k8s.io/utils/ptr"
 )
 
-func TestCompilePolicyNotFail(t *testing.T) {
+func TestCompilePolicy_NotFail(t *testing.T) {
 	compilePolicy(simplePolicy())
 }
 
