@@ -3,10 +3,11 @@ package tester
 import (
 	"errors"
 	"fmt"
-	"kaptest"
 	"log/slog"
 	"os"
 	"path/filepath"
+
+	"github.com/pfnet/kaptest"
 
 	"gopkg.in/yaml.v2"
 	v1 "k8s.io/api/admissionregistration/v1"

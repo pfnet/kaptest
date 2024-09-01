@@ -1,4 +1,4 @@
-module kaptest
+module github.com/pfnet/kaptest
 
 go 1.22.5
 

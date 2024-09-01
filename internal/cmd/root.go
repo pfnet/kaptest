@@ -1,9 +1,10 @@
 package cmd
 
 import (
-	"kaptest/internal/tester"
 	"log/slog"
 	"os"
+
+	"github.com/pfnet/kaptest/internal/tester"
 
 	"github.com/spf13/cobra"
 )
