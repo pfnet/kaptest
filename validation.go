@@ -3,6 +3,7 @@ package kaptest
 import (
 	"context"
 	"fmt"
+	"reflect"
 
 	v1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -216,11 +217,11 @@ type nameWithGVK struct {
 }
 
 func getNameWithGVK(p ValidationParams) (*nameWithGVK, error) {
-	if p.Object == nil && p.OldObject == nil {
+	if isNil(p.Object) && isNil(p.OldObject) {
 		return nil, fmt.Errorf("object or oldObject must be set")
 	}
 	obj := p.Object
-	if obj == nil {
+	if isNil(obj) {
 		obj = p.OldObject
 	}
 	namer := meta.NewAccessor()
@@ -238,6 +239,10 @@ func getNameWithGVK(p ValidationParams) (*nameWithGVK, error) {
 		namespace: namespaceName,
 		gvk:       gvk,
 	}, nil
+}
+
+func isNil(obj runtime.Object) bool {
+	return obj == nil || reflect.ValueOf(obj).IsNil()
 }
 
 // Workaround to handle the case where the evaluation is not set.
