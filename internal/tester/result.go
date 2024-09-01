@@ -44,7 +44,7 @@ func newPolicyEvalResult(policy string, tc TestCase, decisions []validating.Poli
 }
 
 func (r *policyEvalResult) Pass() bool {
-	return r.Result == r.TestCase.Expect
+	return string(r.Result) == string(r.TestCase.Expect)
 }
 
 func (r *policyEvalResult) String(verbose bool) string {
@@ -57,7 +57,7 @@ func (r *policyEvalResult) String(verbose bool) string {
 
 	summary += fmt.Sprintf(": %s", r.Policy)
 	if r.TestCase.Object.IsValid() && r.TestCase.OldObject.IsValid() {
-		summary += fmt.Sprintf(" - (UPDATE) %s -> %s ", r.TestCase.Object.String(), r.TestCase.OldObject.NamespacedName.String())
+		summary += fmt.Sprintf(" - (UPDATE) %s -> %s", r.TestCase.OldObject.String(), r.TestCase.Object.NamespacedName.String())
 	} else if r.TestCase.Object.IsValid() {
 		summary += fmt.Sprintf(" - (CREATE) %s", r.TestCase.Object.String())
 	} else if r.TestCase.OldObject.IsValid() {
@@ -85,6 +85,57 @@ func (r *policyEvalResult) String(verbose bool) string {
 			out = append(out, fmt.Sprintf("--- ERROR: reason %q, message %q", d.Reason, d.Message))
 		}
 	}
+	return strings.Join(out, "\n")
+}
+
+type policyNotMatchConditionResult struct {
+	Policy              string
+	TestCase            TestCase
+	FailedConditionName string
+}
+
+var _ testResult = &policyNotMatchConditionResult{}
+
+func newPolicyNotMatchConditionResult(policy string, tc TestCase, failedConditionName string) *policyNotMatchConditionResult {
+	return &policyNotMatchConditionResult{
+		Policy:              policy,
+		TestCase:            tc,
+		FailedConditionName: failedConditionName,
+	}
+}
+
+func (r *policyNotMatchConditionResult) Pass() bool {
+	return r.TestCase.Expect == Skip
+}
+
+func (r *policyNotMatchConditionResult) String(verbose bool) string {
+	var summary string
+	if r.Pass() {
+		summary = "PASS"
+	} else {
+		summary = "FAIL"
+	}
+
+	summary += fmt.Sprintf(": %s", r.Policy)
+	if r.TestCase.Object.IsValid() && r.TestCase.OldObject.IsValid() {
+		summary += fmt.Sprintf(" - (UPDATE) %s -> %s", r.TestCase.OldObject.String(), r.TestCase.Object.NamespacedName.String())
+	} else if r.TestCase.Object.IsValid() {
+		summary += fmt.Sprintf(" - (CREATE) %s", r.TestCase.Object.String())
+	} else if r.TestCase.OldObject.IsValid() {
+		summary += fmt.Sprintf(" - (DELETE) %s", r.TestCase.OldObject.String())
+	}
+	if r.TestCase.Param.IsValid() {
+		summary += fmt.Sprintf(" (Param: %s)", r.TestCase.Param.String())
+	}
+	if r.Pass() {
+		summary += fmt.Sprintf(" - %s ==> %s", "SKIP", "SKIP")
+	} else {
+		summary += fmt.Sprintf(" - %s ==> %s", strings.ToUpper(string(r.TestCase.Expect)), "NOT MATCH")
+	}
+
+	out := []string{summary}
+	out = append(out, fmt.Sprintf("--- NOT MATCH: condition-name %q", r.FailedConditionName))
+
 	return strings.Join(out, "\n")
 }
 

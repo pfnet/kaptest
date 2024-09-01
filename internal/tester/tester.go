@@ -115,6 +115,18 @@ func runEach(cfg CmdConfig, manifestPath string) testResultSummary {
 				continue
 			}
 
+			// Run EvalMatchConditions
+			if vap.Spec.MatchConditions != nil {
+				matchResult := validator.EvalMatchCondition(given)
+				if matchResult.Error != nil {
+					results = append(results, newPolicyEvalErrorResult(tt.Policy, tc, []error{matchResult.Error}))
+					continue
+				}
+				if !matchResult.Matches {
+					results = append(results, newPolicyNotMatchConditionResult(tt.Policy, tc, matchResult.FailedConditionName))
+					continue
+				}
+			}
 			// Run validation
 			slog.Debug("RUN:   ", "policy", tt.Policy, "expect", tc.Expect, "object", tc.Object.String(), "oldObject", tc.OldObject.String(), "param", tc.Param.String())
 			validationResult, err := validator.Validate(given)

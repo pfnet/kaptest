@@ -10,7 +10,6 @@ import (
 	v1 "k8s.io/api/admissionregistration/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apiserver/pkg/admission/plugin/policy/validating"
 	"k8s.io/cli-runtime/pkg/printers"
 	"k8s.io/utils/ptr"
 )
@@ -166,14 +165,14 @@ func wantRootManifest() []byte {
 							GVK:            GVK{Kind: "Pod"},
 							NamespacedName: NamespacedName{Name: "ok"},
 						},
-						Expect: validating.EvalAdmit,
+						Expect: Admit,
 					},
 					{
 						Object: NameWithGVK{
 							GVK:            GVK{Kind: "Pod"},
 							NamespacedName: NamespacedName{Name: "bad"},
 						},
-						Expect: validating.EvalDeny,
+						Expect: Deny,
 					},
 				},
 			},

@@ -145,14 +145,14 @@ func convertv1beta1Variables(variables []v1.Variable) []cel.NamedExpressionAcces
 // This is a hack to be able to check the name of failed expressions in matchCondition.
 //
 // TODO: Remove this func after k/k's Validate func outputs the name of the failed matchCondition.
-func (v *validator) EvalMatchCondition(p ValidationParams) (*matchconditions.MatchResult, error) {
+func (v *validator) EvalMatchCondition(p ValidationParams) *matchconditions.MatchResult {
 	if v.matcher == nil {
-		return nil, fmt.Errorf("match condition is not defined")
+		panic("matcher is not defined")
 	}
 	ctx := context.Background()
 	versionedAttribute, _ := makeVersionedAttribute(p)
 	matchResults := v.matcher.Match(ctx, versionedAttribute, p.ParamObj, stubAuthz())
-	return &matchResults, nil
+	return &matchResults
 }
 
 // Validate evaluates ValidationAdmissionPolicies' validations.

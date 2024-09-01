@@ -255,9 +255,9 @@ func TestValidator_EvalMatchCondition(t *testing.T) {
 
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			matchResult, err := validator.EvalMatchCondition(ValidationParams{Object: tt.object})
-			if err != nil {
-				t.Errorf("eval match condition failed with error: %v", err)
+			matchResult := validator.EvalMatchCondition(ValidationParams{Object: tt.object})
+			if matchResult.Error != nil {
+				t.Errorf("eval match condition failed with error: %v", matchResult.Error)
 			}
 			if tt.matches != matchResult.Matches {
 				t.Errorf("match result is expected to be %t, but got %t", tt.matches, matchResult.Matches)

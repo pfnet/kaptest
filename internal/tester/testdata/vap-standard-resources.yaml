@@ -39,3 +39,21 @@ spec:
       resources: ["deployments"]
   validations:
   - expression: oldObject.metadata.?labels['deletable'].orValue("") == "true"
+---
+apiVersion: admissionregistration.k8s.io/v1beta1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: deployment-replicas-with-matchCondition
+spec:
+  failurePolicy: Fail
+  matchConstraints:
+    resourceRules:
+    - apiGroups: [""]
+      apiVersions: ["v1"]
+      operations: ["CREATE", "UPDATE"]
+      resources: ["deployments"]
+  matchConditions:
+  - name: isMutable
+    expression: request.operation == "CREATE" || oldObject.?metadata.?labels['immutable'].orValue("") != "true"
+  validations:
+  - expression: object.spec.replicas <= 5

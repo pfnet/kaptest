@@ -11,7 +11,6 @@ import (
 	"gopkg.in/yaml.v2"
 	v1 "k8s.io/api/admissionregistration/v1"
 	kyaml "k8s.io/apimachinery/pkg/util/yaml"
-	"k8s.io/apiserver/pkg/admission/plugin/policy/validating"
 )
 
 const (
@@ -120,7 +119,7 @@ func baseManifest(targetPath string, policies []string) []byte {
 							Name: "ok",
 						},
 					},
-					Expect: validating.EvalAdmit,
+					Expect: Admit,
 				},
 				{
 					Object: NameWithGVK{
@@ -131,7 +130,7 @@ func baseManifest(targetPath string, policies []string) []byte {
 							Name: "bad",
 						},
 					},
-					Expect: validating.EvalDeny,
+					Expect: Deny,
 				},
 			},
 		})

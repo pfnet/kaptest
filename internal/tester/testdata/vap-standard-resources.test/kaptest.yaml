@@ -18,14 +18,14 @@ testSuites:
       name: ok
     oldObject:
       kind: Deployment
-      name: non-immutable
+      name: mutable
     expect: admit
   - object:
       kind: Deployment
       name: bad
     oldObject:
       kind: Deployment
-      name: non-immutable
+      name: mutable
     expect: deny
 - policy: deployment-check-immutable
   tests:
@@ -34,7 +34,7 @@ testSuites:
       name: ok
     oldObject:
       kind: Deployment
-      name: non-immutable
+      name: mutable
     expect: admit
   - object:
       kind: Deployment
@@ -52,4 +52,31 @@ testSuites:
   - oldObject:
       kind: Deployment
       name: non-deletable
+    expect: deny
+- policy: deployment-replicas-with-matchCondition
+  tests:
+  - object:
+      kind: Deployment
+      name: ok
+    expect: admit
+  - object:
+      kind: Deployment
+      name: ok
+    oldObject:
+      kind: Deployment
+      name: immutable
+    expect: skip
+  - object:
+      kind: Deployment
+      name: ok
+    oldObject:
+      kind: Deployment
+      name: mutable
+    expect: admit
+  - object:
+      kind: Deployment
+      name: bad
+    oldObject:
+      kind: Deployment
+      name: mutable
     expect: deny
