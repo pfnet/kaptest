@@ -45,8 +45,8 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: good-deployment
-  namespace: org-foo
+  name: good-deployment-with-namespace
+  namespace: foo
   labels:
     app: good-deployment
 spec:
@@ -68,8 +68,8 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: bad-deployment
-  namespace: org-foo
+  name: bad-deployment-with-namespace
+  namespace: foo
   labels:
     app: bad-deployment
 spec:

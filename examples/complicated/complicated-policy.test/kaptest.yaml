@@ -11,25 +11,23 @@ testSuites:
       kind: Deployment
       name: good-deployment
     param:
-      name: config1
-      namespace: hoge
+      name: config
     expect: admit
   - object:
       kind: Deployment
       name: bad-deployment
     param:
-      name: config1
-      namespace: hoge
+      name: config
     expect: deny
 - policy: policy-with-namespace
   tests:
   - object:
       kind: Deployment
-      name: good-deployment
-      namespace: org-foo
+      name: good-deployment-with-namespace
+      namespace: foo
     expect: admit
   - object:
       kind: Deployment
-      name: bad-deployment
-      namespace: org-foo
+      name: bad-deployment-with-namespace
+      namespace: foo
     expect: deny
