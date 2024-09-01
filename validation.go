@@ -20,17 +20,19 @@ import (
 	"k8s.io/apiserver/pkg/cel/environment"
 )
 
-// Validator is an interface to evaluate ValidatingAdmissionPolicy.
-type Validator interface {
-	EvalMatchCondition(p ValidationParams) (*matchconditions.MatchResult, error)
+// ValidatorInterface is an interface to evaluate ValidatingAdmissionPolicy.
+type ValidatorInterface interface {
+	EvalMatchCondition(p ValidationParams) *matchconditions.MatchResult
 	Validate(p ValidationParams) (*validating.ValidateResult, error)
 }
 
-type validator struct {
+type Validator struct {
 	policy    *v1.ValidatingAdmissionPolicy
 	validator validating.Validator
 	matcher   matchconditions.Matcher
 }
+
+var _ ValidatorInterface = &Validator{}
 
 // ValidationParams contains the parameters required to evaluate a ValidatingAdmissionPolicy.
 type ValidationParams struct {
@@ -52,9 +54,9 @@ func (p ValidationParams) Operation() admission.Operation {
 }
 
 // NewValidator compiles the provided ValidatingAdmissionPolicy and generates Validator.
-func NewValidator(policy *v1.ValidatingAdmissionPolicy) *validator {
+func NewValidator(policy *v1.ValidatingAdmissionPolicy) *Validator {
 	v, m := compilePolicy(policy)
-	return &validator{validator: v, policy: policy, matcher: m}
+	return &Validator{validator: v, policy: policy, matcher: m}
 }
 
 // Original: https://github.com/kubernetes/kubernetes/blob/8bd6c10ba5833369fb6582587b77de8f8b51c371/staging/src/k8s.io/apiserver/pkg/admission/plugin/policy/validating/plugin.go#L121-L157
@@ -145,7 +147,7 @@ func convertv1beta1Variables(variables []v1.Variable) []cel.NamedExpressionAcces
 // This is a hack to be able to check the name of failed expressions in matchCondition.
 //
 // TODO: Remove this func after k/k's Validate func outputs the name of the failed matchCondition.
-func (v *validator) EvalMatchCondition(p ValidationParams) *matchconditions.MatchResult {
+func (v *Validator) EvalMatchCondition(p ValidationParams) *matchconditions.MatchResult {
 	if v.matcher == nil {
 		panic("matcher is not defined")
 	}
@@ -158,7 +160,7 @@ func (v *validator) EvalMatchCondition(p ValidationParams) *matchconditions.Matc
 // Validate evaluates ValidationAdmissionPolicies' validations.
 // ValidationResult contains the result of each validation(Admit, Deny, Error)
 // and the reason if it is evaluated as Deny or Error.
-func (v *validator) Validate(p ValidationParams) (*validating.ValidateResult, error) {
+func (v *Validator) Validate(p ValidationParams) (*validating.ValidateResult, error) {
 	ctx := context.Background()
 	versionedAttribute, matchedResource := makeVersionedAttribute(p)
 	result := v.validator.Validate(

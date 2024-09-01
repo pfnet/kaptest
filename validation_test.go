@@ -60,7 +60,7 @@ func TestValidator_Validate_WithVariable(t *testing.T) {
 	validatorWithVar := NewValidator(policyWithVar)
 	cases := []struct {
 		name            string
-		validator       *validator
+		validator       *Validator
 		object          runtime.Object
 		expectedResult  validating.PolicyDecisionEvaluation
 		expectedMessage string

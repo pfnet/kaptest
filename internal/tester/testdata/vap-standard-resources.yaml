@@ -53,7 +53,7 @@ spec:
       operations: ["CREATE", "UPDATE"]
       resources: ["deployments"]
   matchConditions:
-  - name: isMutable
+  - name: is-mutable
     expression: request.operation == "CREATE" || oldObject.?metadata.?labels['immutable'].orValue("") != "true"
   validations:
   - expression: object.spec.replicas <= 5
