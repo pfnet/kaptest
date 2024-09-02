@@ -10,7 +10,7 @@ import (
 func newInitCmd(cfg tester.CmdConfig) *cobra.Command {
 	return &cobra.Command{
 		Use:   "init [path to admission policy file]",
-		Short: "Initialize the test directory",
+		Short: "Generate skeleton manifests for writing tests",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {
 				return fmt.Errorf("path is required")
