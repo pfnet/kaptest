@@ -15,3 +15,12 @@ lint:
 build:
 	${DOCKER_BUILD} --build-arg GOOS=$(GOOS) --build-arg GOARCH=$(GOARCH) \
 		--build-arg APP_NAME=$(APP_NAME) --target export-binary --output . .
+
+GOCREDITS_VERSION ?= v0.3.1
+.PHONY: gocredits
+gocredits:
+	go install github.com/Songmu/gocredits/cmd/gocredits@${GOCREDITS_VERSION}
+
+.PHONY: credits
+credits: gocredits
+	gocredits . > CREDITS
