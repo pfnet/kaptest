@@ -11,43 +11,47 @@ project_name: kaptest
 
 before:
   hooks:
-    # You may remove this if you don't use go modules.
-    - go mod tidy
+  # You may remove this if you don't use go modules.
+  - go mod tidy
 dist: ./dist
 builds:
-  - main: ./internal/cmd/main.go
-    env:
-      - CGO_ENABLED=0
-    goos:
-      - linux
-      - windows
-      - darwin
-    goarch:
-      - amd64
-      - arm64
-    flags:  
-      - -trimpath  
-    ldflags:  
-      - -w -s  
+- main: ./internal/cmd/main.go
+  env:
+  - CGO_ENABLED=0
+  goos:
+  - linux
+  - windows
+  - darwin
+  goarch:
+  - amd64
+  - arm64
+  flags:
+  - -trimpath
+  ldflags:
+  - -w -s
 
 archives:
-  - format: tar.gz
-    # this name template makes the OS and Arch compatible with the results of `uname`.
-    name_template: >-
-      {{ .ProjectName }}_
-      {{- title .Os }}_
-      {{- if eq .Arch "amd64" }}x86_64
-      {{- else if eq .Arch "386" }}i386
-      {{- else }}{{ .Arch }}{{ end }}
-      {{- if .Arm }}v{{ .Arm }}{{ end }}
-    # use zip for windows archives
-    format_overrides:
-      - goos: windows
-        format: zip
+- format: tar.gz
+  # this name template makes the OS and Arch compatible with the results of `uname`.
+  name_template: >-
+    {{ .ProjectName }}_
+    {{- title .Os }}_
+    {{- if eq .Arch "amd64" }}x86_64
+    {{- else if eq .Arch "386" }}i386
+    {{- else }}{{ .Arch }}{{ end }}
+    {{- if .Arm }}v{{ .Arm }}{{ end }}
+  # use zip for windows archives
+  format_overrides:
+  - goos: windows
+    format: zip
+  files:
+  - LICENSE
+  - CREDITS
+  - README.md
 
 changelog:
   sort: asc
   filters:
     exclude:
-      - "^docs:"
-      - "^test:"
+    - "^docs:"
+    - "^test:"
