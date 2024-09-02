@@ -18,7 +18,7 @@ func Execute() {
 func newRootCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:          "kaptest",
-		Short:        "Kubernetes Admission Policy Tester",
+		Short:        "Kubernetes Admission Policy TESTing tool",
 		SilenceUsage: true,
 	}
 	cfg := tester.CmdConfig{}
@@ -29,6 +29,7 @@ func newRootCmd() *cobra.Command {
 
 	cmd.AddCommand(newInitCmd(cfg))
 	cmd.AddCommand(newRunCmd(cfg))
+	cmd.AddCommand(newVersionCmd())
 	return cmd
 }
 
