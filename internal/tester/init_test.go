@@ -162,14 +162,14 @@ func wantRootManifest() []byte {
 				Tests: []TestCase{
 					{
 						Object: NameWithGVK{
-							GVK:            GVK{Kind: "Pod"},
+							GVK:            GVK{Kind: "CHANGEME"},
 							NamespacedName: NamespacedName{Name: "ok"},
 						},
 						Expect: Admit,
 					},
 					{
 						Object: NameWithGVK{
-							GVK:            GVK{Kind: "Pod"},
+							GVK:            GVK{Kind: "CHANGEME"},
 							NamespacedName: NamespacedName{Name: "bad"},
 						},
 						Expect: Deny,

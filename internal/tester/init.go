@@ -113,7 +113,7 @@ func baseManifest(targetPath string, policies []string) []byte {
 				{
 					Object: NameWithGVK{
 						GVK: GVK{
-							Kind: "Pod",
+							Kind: "CHANGEME",
 						},
 						NamespacedName: NamespacedName{
 							Name: "ok",
@@ -124,7 +124,7 @@ func baseManifest(targetPath string, policies []string) []byte {
 				{
 					Object: NameWithGVK{
 						GVK: GVK{
-							Kind: "Pod",
+							Kind: "CHANGEME",
 						},
 						NamespacedName: NamespacedName{
 							Name: "bad",
