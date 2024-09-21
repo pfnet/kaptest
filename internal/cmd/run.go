@@ -23,7 +23,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func newRunCmd(cfg tester.CmdConfig) *cobra.Command {
+func newRunCmd(cfg *tester.CmdConfig) *cobra.Command {
 	return &cobra.Command{
 		Use:   "run [path to test manifest]...",
 		Short: "Run the tests of ValidatingAdmissionPolicy",
@@ -31,7 +31,7 @@ func newRunCmd(cfg tester.CmdConfig) *cobra.Command {
 			if len(args) == 0 {
 				return fmt.Errorf("path is required")
 			}
-			return tester.Run(cfg, args)
+			return tester.Run(*cfg, args)
 		},
 	}
 }

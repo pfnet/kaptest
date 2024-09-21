@@ -23,7 +23,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func newInitCmd(cfg tester.CmdConfig) *cobra.Command {
+func newInitCmd(cfg *tester.CmdConfig) *cobra.Command {
 	return &cobra.Command{
 		Use:   "init [path to admission policy file]",
 		Short: "Generate skeleton manifests for writing tests",
@@ -32,7 +32,7 @@ func newInitCmd(cfg tester.CmdConfig) *cobra.Command {
 				return fmt.Errorf("path is required")
 			}
 			targetFilePath := args[0]
-			return tester.RunInit(cfg, targetFilePath)
+			return tester.RunInit(*cfg, targetFilePath)
 		},
 	}
 }
