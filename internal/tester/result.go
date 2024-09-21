@@ -84,12 +84,11 @@ func (r *policyEvalResult) String(verbose bool) string {
 	}
 	summary += fmt.Sprintf(" - %s ==> %s", strings.ToUpper(string(r.TestCase.Expect)), strings.ToUpper(string(r.Result)))
 
-	if !verbose {
-		return summary
-	}
-
 	out := []string{summary}
 	for _, d := range r.Decisions {
+		if r.Pass() && !verbose {
+			continue
+		}
 		// Workaround to handle the case where the evaluation is not set
 		// TODO remove this workaround after htcps://github.com/kubernetes/kubernetes/pull/126867 is released
 		if d.Evaluation == "" {
