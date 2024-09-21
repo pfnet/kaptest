@@ -125,7 +125,7 @@ func runEach(cfg CmdConfig, manifestPath string) testResultSummary {
 			// Setup params for validation
 			given, errs := newValidationParams(vap, tc, loader)
 			if len(errs) > 0 {
-				results = append(results, newPolicyEvalErrorResult(tt.Policy, tc, errs))
+				results = append(results, newSetupErrorResult(tt.Policy, tc, errs))
 				continue
 			}
 
@@ -145,7 +145,7 @@ func runEach(cfg CmdConfig, manifestPath string) testResultSummary {
 			slog.Debug("RUN:   ", "policy", tt.Policy, "expect", tc.Expect, "object", tc.Object.String(), "oldObject", tc.OldObject.String(), "param", tc.Param.String())
 			validationResult, err := validator.Validate(given)
 			if err != nil {
-				results = append(results, newPolicyEvalErrorResult(tt.Policy, tc, []error{err}))
+				results = append(results, newPolicyEvalFatalErrorResult(tt.Policy, tc, []error{err}))
 				continue
 			}
 
