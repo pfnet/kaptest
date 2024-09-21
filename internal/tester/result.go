@@ -50,7 +50,7 @@ func summaryLine(pass bool, policy string, testCase TestCase, result string) str
 	if testCase.Param.IsValid() {
 		summary += fmt.Sprintf(" (Param: %s)", testCase.Param.String())
 	}
-	summary += fmt.Sprintf(" - %s ==> %s", strings.ToUpper(string(testCase.Expect)), result)
+	summary += fmt.Sprintf(" - %s ==> %s", strings.ToUpper(string(testCase.Expect)), strings.ToUpper(result))
 	return summary
 }
 
