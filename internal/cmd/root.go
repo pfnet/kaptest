@@ -41,10 +41,12 @@ func newRootCmd() *cobra.Command {
 	cmd.PersistentFlags().BoolVarP(&cfg.Verbose, "verbose", "v", false, "Verbose output")
 	cmd.PersistentFlags().BoolVarP(&cfg.Debug, "debug", "d", false, "Debug output")
 
-	initLog(cfg)
+	cobra.OnInitialize(func() {
+		initLog(cfg)
+	})
 
-	cmd.AddCommand(newInitCmd(cfg))
-	cmd.AddCommand(newRunCmd(cfg))
+	cmd.AddCommand(newInitCmd(&cfg))
+	cmd.AddCommand(newRunCmd(&cfg))
 	cmd.AddCommand(newVersionCmd())
 	return cmd
 }
