@@ -103,6 +103,67 @@ func (r *policyEvalResult) String(verbose bool) string {
 	return strings.Join(out, "\n")
 }
 
+type policyNotFoundResult struct {
+	Policy string
+}
+
+var _ testResult = &policyNotFoundResult{}
+
+func newPolicyNotFoundResult(policy string) *policyNotFoundResult {
+	return &policyNotFoundResult{
+		Policy: policy,
+	}
+}
+
+func (r *policyNotFoundResult) Pass() bool {
+	return false
+}
+
+func (r *policyNotFoundResult) String(verbose bool) string {
+	return fmt.Sprintf("FAIL: %s ==> POLICY NOT FOUND", r.Policy)
+}
+
+type setupErrorResult struct {
+	Policy   string
+	TestCase TestCase
+	Errors   []error
+}
+
+var _ testResult = &setupErrorResult{}
+
+func newSetupErrorResult(policy string, tc TestCase, errs []error) *setupErrorResult {
+	return &setupErrorResult{
+		Policy:   policy,
+		TestCase: tc,
+		Errors:   errs,
+	}
+}
+
+func (r *setupErrorResult) Pass() bool {
+	return false
+}
+
+func (r *setupErrorResult) String(verbose bool) string {
+	summary := fmt.Sprintf("FAIL: %s", r.Policy)
+	if r.TestCase.Object.IsValid() && r.TestCase.OldObject.IsValid() { //nolint:gocritic
+		summary += fmt.Sprintf(" - %s -> %s ", r.TestCase.Object.String(), r.TestCase.OldObject.NamespacedName.String())
+	} else if r.TestCase.Object.IsValid() {
+		summary += fmt.Sprintf(" - %s", r.TestCase.Object.String())
+	} else if r.TestCase.OldObject.IsValid() {
+		summary += fmt.Sprintf(" - %s", r.TestCase.OldObject.String())
+	}
+	if r.TestCase.Param.IsValid() {
+		summary += fmt.Sprintf(" (Param: %s)", r.TestCase.Param.String())
+	}
+	summary += fmt.Sprintf(" - %s ==> %s", strings.ToUpper(string(r.TestCase.Expect)), "SETUP ERROR")
+
+	out := []string{summary}
+	for _, err := range r.Errors {
+		out = append(out, fmt.Sprintf("--- ERROR: %v", err))
+	}
+	return strings.Join(out, "\n")
+}
+
 type policyNotMatchConditionResult struct {
 	Policy              string
 	TestCase            TestCase
@@ -142,36 +203,14 @@ func (r *policyNotMatchConditionResult) String(verbose bool) string {
 	if r.TestCase.Param.IsValid() {
 		summary += fmt.Sprintf(" (Param: %s)", r.TestCase.Param.String())
 	}
-	if r.Pass() {
-		summary += fmt.Sprintf(" - %s ==> %s", "SKIP", "SKIP")
-	} else {
-		summary += fmt.Sprintf(" - %s ==> %s", strings.ToUpper(string(r.TestCase.Expect)), "NOT MATCH")
-	}
+	summary += fmt.Sprintf(" - %s ==> %s", strings.ToUpper(string(r.TestCase.Expect)), "SKIP")
 
 	out := []string{summary}
-	out = append(out, fmt.Sprintf("--- NOT MATCH: condition-name %q", r.FailedConditionName))
+	if !r.Pass() || verbose {
+		out = append(out, fmt.Sprintf("--- NOT MATCH: condition-name %q", r.FailedConditionName))
+	}
 
 	return strings.Join(out, "\n")
-}
-
-type policyNotFoundResult struct {
-	Policy string
-}
-
-var _ testResult = &policyNotFoundResult{}
-
-func newPolicyNotFoundResult(policy string) *policyNotFoundResult {
-	return &policyNotFoundResult{
-		Policy: policy,
-	}
-}
-
-func (r *policyNotFoundResult) Pass() bool {
-	return false
-}
-
-func (r *policyNotFoundResult) String(verbose bool) string {
-	return fmt.Sprintf("FAIL: %s ==> POLICY NOT FOUND", r.Policy)
 }
 
 type policyEvalErrorResult struct {
@@ -191,22 +230,73 @@ func newPolicyEvalErrorResult(policy string, tc TestCase, errs []error) *policyE
 }
 
 func (r *policyEvalErrorResult) Pass() bool {
-	return false
+	return r.TestCase.Expect == Error
 }
 
 func (r *policyEvalErrorResult) String(verbose bool) string {
-	summary := fmt.Sprintf("FAIL: %s", r.Policy)
+	var summary string
+	if r.Pass() {
+		summary = "PASS"
+	} else {
+		summary = "FAIL"
+	}
+
+	summary += fmt.Sprintf(": %s", r.Policy)
 	if r.TestCase.Object.IsValid() && r.TestCase.OldObject.IsValid() { //nolint:gocritic
-		summary += fmt.Sprintf(" - %s -> %s ", r.TestCase.Object.String(), r.TestCase.OldObject.NamespacedName.String())
+		summary += fmt.Sprintf(" - (UPDATE) %s -> %s", r.TestCase.OldObject.String(), r.TestCase.Object.NamespacedName.String())
 	} else if r.TestCase.Object.IsValid() {
-		summary += fmt.Sprintf(" - %s", r.TestCase.Object.String())
+		summary += fmt.Sprintf(" - (CREATE) %s", r.TestCase.Object.String())
 	} else if r.TestCase.OldObject.IsValid() {
-		summary += fmt.Sprintf(" - %s", r.TestCase.OldObject.String())
+		summary += fmt.Sprintf(" - (DELETE) %s", r.TestCase.OldObject.String())
 	}
 	if r.TestCase.Param.IsValid() {
 		summary += fmt.Sprintf(" (Param: %s)", r.TestCase.Param.String())
 	}
-	summary += fmt.Sprintf(" - %s ==> %s", strings.ToUpper(string(r.TestCase.Expect)), "SETUP ERROR")
+	summary += fmt.Sprintf(" - %s ==> %s", strings.ToUpper(string(r.TestCase.Expect)), "ERROR")
+
+	out := []string{summary}
+	if !r.Pass() || verbose {
+		for _, err := range r.Errors {
+			out = append(out, fmt.Sprintf("--- ERROR: %v", err))
+		}
+	}
+
+	return strings.Join(out, "\n")
+}
+
+type policyEvalFatalErrorResult struct {
+	Policy   string
+	TestCase TestCase
+	Errors   []error
+}
+
+var _ testResult = &policyEvalFatalErrorResult{}
+
+func newPolicyEvalFatalErrorResult(policy string, tc TestCase, errs []error) *policyEvalFatalErrorResult {
+	return &policyEvalFatalErrorResult{
+		Policy:   policy,
+		TestCase: tc,
+		Errors:   errs,
+	}
+}
+
+func (r *policyEvalFatalErrorResult) Pass() bool {
+	return false
+}
+
+func (r *policyEvalFatalErrorResult) String(verbose bool) string {
+	summary := fmt.Sprintf("FAIL: %s", r.Policy)
+	if r.TestCase.Object.IsValid() && r.TestCase.OldObject.IsValid() { //nolint:gocritic
+		summary += fmt.Sprintf(" - (UPDATE) %s -> %s", r.TestCase.OldObject.String(), r.TestCase.Object.NamespacedName.String())
+	} else if r.TestCase.Object.IsValid() {
+		summary += fmt.Sprintf(" - (CREATE) %s", r.TestCase.Object.String())
+	} else if r.TestCase.OldObject.IsValid() {
+		summary += fmt.Sprintf(" - (DELETE) %s", r.TestCase.OldObject.String())
+	}
+	if r.TestCase.Param.IsValid() {
+		summary += fmt.Sprintf(" (Param: %s)", r.TestCase.Param.String())
+	}
+	summary += fmt.Sprintf(" - %s ==> %s", strings.ToUpper(string(r.TestCase.Expect)), "FATAL ERROR")
 
 	out := []string{summary}
 	for _, err := range r.Errors {
