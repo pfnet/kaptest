@@ -73,7 +73,7 @@ testSuites:
       group: <group> # Optional
       version: <version> # Optional
       kind: <kind> # Required
-      namespace: <namespace> # Optional: it is needed to match with namespaced resource
+      namespace: <namespace> # Optional: It is needed to match with a resource whose namespace is set.
       name: <name> # Required
     oldObject:
       group: <group> # Optional
@@ -91,7 +91,7 @@ testSuites:
     expect: <allow|deny|skip|error>
 ```
 
-Resources specified in the `object`, `oldObject`, and `params` fields of the test cases, as well as `Namespace` resources, must be described in the YAML files specified in `resources` field.
+Resources specified in the `object`, `oldObject`, `params`, and `namespace` fields of the test cases must be described in the YAML files specified in the `resources` field.
 
 ### Run test
 
@@ -101,7 +101,7 @@ The tests defined in the above manifest can be run with the following command:
 kaptest run <path/to/test_manifest.yaml> ...
 ```
 
-You can specify multiple YAML files to display the test results together.
+You can run test cases of multiple YAML files at once and display the test results together.
 
 ### Operation Type
 
@@ -116,7 +116,7 @@ You can describe the cases for CREATE, UPDATE, and DELETE operations based on wh
 Kaptest focuses on evaluating CEL expressions, so even when an error occurs or `matchConditions` are not met it does not change the result to `allow` or `deny`. The test results of Kaptest will be one of the following four values:
 
 - **allow**: When all `matchConditions` and `validations` are evaluated as `true`
-- **deny**: When all `matchConditions` are are evaluated as `true`, and at least one `validation` is evaluated as `false`
+- **deny**: When all `matchConditions` are evaluated as `true`, and at least one `validation` is evaluated as `false`
 - **skip**: When at least one `matchCondition` is evaluated as `false`
 - **error**: When at least one `matchCondition` or `validation` cannot be evaluated
 
