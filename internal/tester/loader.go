@@ -80,6 +80,14 @@ func (r *ResourceLoader) LoadPolicies(paths []string) {
 				continue
 			}
 
+			if r.validator != nil {
+				res := r.validator.ValidateResource(resource.Resource{Bytes: b})
+				if res.Err != nil || res.Status != validator.Valid {
+					slog.Error("Invalid policy exists")
+					continue
+				}
+			}
+
 			obj, gvk, err := decoder.Decode(b, nil, nil)
 			if err != nil {
 				slog.Warn("failed to decode policy", "error", err)
