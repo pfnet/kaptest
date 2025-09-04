@@ -132,7 +132,9 @@ func runEach(cfg TesterCmdConfig, manifestPath string) testResultSummary {
 			Strict:               true,
 			IgnoreMissingSchemas: false,
 		}
-		manifestValidator, err = validator.New([]string{}, validatorOpts)
+		schemaLocations := []string{"https://raw.githubusercontent.com/yannh/kubernetes-json-schema/master/{{ .NormalizedKubernetesVersion }}-standalone{{ .StrictSuffix }}/{{ .ResourceKind }}{{ .KindSuffix }}.json"}
+		schemaLocations = append(schemaLocations, manifests.SchemaLocations...)
+		manifestValidator, err = validator.New(schemaLocations, validatorOpts)
 		if err != nil {
 			return testResultSummary{
 				manifestPath: manifestPath,
