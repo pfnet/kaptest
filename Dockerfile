@@ -12,7 +12,7 @@ RUN --mount=type=cache,target=/go/pkg/mod/ \
 
 # Lint
 FROM builder AS lint-internal
-COPY --from=golangci/golangci-lint:v1.63 /usr/bin/golangci-lint /usr/bin/golangci-lint
+COPY --from=golangci/golangci-lint:v1.64 /usr/bin/golangci-lint /usr/bin/golangci-lint
 RUN --mount=type=cache,target=/go/pkg/mod/ \
     --mount=type=bind,target=. \
     golangci-lint run
