@@ -1,0 +1,11 @@
+policies:
+- ../vap-custom-resources.yaml
+resources:
+- resources.yaml
+vapTestSuites:
+- policy: httpproxy-auth
+  tests:
+  - object:
+      kind: HTTPProxy
+      name: ok
+    expect: admit
