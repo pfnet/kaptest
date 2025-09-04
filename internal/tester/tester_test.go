@@ -16,7 +16,11 @@ limitations under the License.
 
 package tester
 
-import "testing"
+import (
+	"os"
+	"path/filepath"
+	"testing"
+)
 
 func TestRun(t *testing.T) {
 	t.Parallel()
@@ -92,8 +96,21 @@ func TestRun(t *testing.T) {
 			wantErr: ErrTestFail,
 		},
 	}
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		t.Fatalf("failed to get homedir: %v", err)
+	}
+	schemaCache := filepath.Join(homeDir, ".cache/kaptest/schema-test")
+	defer os.RemoveAll(schemaCache)
+
 	for _, tt := range tests {
-		cfg := CmdConfig{Verbose: true}
+		cfg := TesterCmdConfig{
+			CmdConfig: CmdConfig{
+				Verbose: true,
+			},
+			ValidateResourceManifest: true,
+			SchemaCache:              schemaCache,
+		}
 		t.Run(tt.name, func(t *testing.T) {
 			got := Run(cfg, tt.args)
 			if got != tt.wantErr {

@@ -80,7 +80,7 @@ func createRootManifest(targetFilePath string) error {
 		return fmt.Errorf("file already exists: %s", p)
 	}
 
-	loader := NewResourceLoader()
+	loader := NewResourceLoader(nil)
 	loader.LoadPolicies([]string{targetFilePath})
 	slog.Debug(fmt.Sprintf("test target ValidatingAdmissionPolicies: %v", maps.Keys(loader.Vaps)))
 	slog.Debug(fmt.Sprintf("test target MutatingAdmissionPolicies: %v", maps.Keys(loader.Maps)))

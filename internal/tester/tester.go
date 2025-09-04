@@ -24,6 +24,7 @@ import (
 	"path/filepath"
 
 	"github.com/pfnet/kaptest"
+	"github.com/yannh/kubeconform/pkg/validator"
 	"gopkg.in/yaml.v2"
 	v1 "k8s.io/api/admissionregistration/v1"
 	"k8s.io/api/admissionregistration/v1alpha1"
@@ -37,8 +38,14 @@ import (
 
 var ErrTestFail = errors.New("test failed")
 
+type TesterCmdConfig struct {
+	CmdConfig
+	ValidateResourceManifest bool
+	SchemaCache              string
+}
+
 // Run runs the test cases defined in multiple manifest files.
-func Run(cfg CmdConfig, pathList []string) error {
+func Run(cfg TesterCmdConfig, pathList []string) error {
 	var passCount, failCount int
 	for _, path := range pathList {
 		r := runEach(cfg, path)
@@ -59,7 +66,7 @@ func Run(cfg CmdConfig, pathList []string) error {
 }
 
 // runEach runs the test cases defined in a single manifest file.
-func runEach(cfg CmdConfig, manifestPath string) testResultSummary {
+func runEach(cfg TesterCmdConfig, manifestPath string) testResultSummary {
 	// Read manifest yaml
 	manifestFile, err := os.ReadFile(manifestPath)
 	if err != nil {
@@ -104,8 +111,39 @@ func runEach(cfg CmdConfig, manifestPath string) testResultSummary {
 	}
 	defer os.Chdir(pwd) //nolint:errcheck
 
+	var manifestValidator validator.Validator = nil
+	if cfg.ValidateResourceManifest {
+		// Below line causes gofumpt's false positive
+		err = os.MkdirAll(cfg.SchemaCache, 0755) //nolint:gofumpt
+		if err != nil {
+			return testResultSummary{
+				manifestPath: manifestPath,
+				fail:         1,
+				message:      fmt.Sprintf("FAIL: create manifest validator schema cache: %v", err),
+			}
+		}
+		validatorOpts := validator.Opts{
+			Cache:                cfg.SchemaCache,
+			Debug:                cfg.Debug,
+			SkipTLS:              false,
+			SkipKinds:            map[string]struct{}{},
+			RejectKinds:          map[string]struct{}{},
+			KubernetesVersion:    "1.32.1", // ensure matching a version with validation.go and mutation.go
+			Strict:               true,
+			IgnoreMissingSchemas: false,
+		}
+		manifestValidator, err = validator.New([]string{}, validatorOpts)
+		if err != nil {
+			return testResultSummary{
+				manifestPath: manifestPath,
+				fail:         1,
+				message:      fmt.Sprintf("FAIL: create manifest validator: %v", err),
+			}
+		}
+	}
+
 	// Load Policies and other resources
-	loader := NewResourceLoader()
+	loader := NewResourceLoader(manifestValidator)
 	loader.LoadPolicies(manifests.Policies)
 	loader.LoadResources(manifests.Resources)
 

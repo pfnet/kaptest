@@ -18,20 +18,33 @@ package cmd
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 
 	"github.com/pfnet/kaptest/internal/tester"
 	"github.com/spf13/cobra"
 )
 
 func newRunCmd(cfg *tester.CmdConfig) *cobra.Command {
-	return &cobra.Command{
+	testerCfg := tester.TesterCmdConfig{
+		CmdConfig: *cfg,
+	}
+	cmd := &cobra.Command{
 		Use:   "run [path to test manifest]...",
 		Short: "Run the tests of ValidatingAdmissionPolicy and MutatingAdmissionPolicy",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {
 				return fmt.Errorf("path is required")
 			}
-			return tester.Run(*cfg, args)
+			return tester.Run(testerCfg, args)
 		},
 	}
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		panic(err)
+	}
+	cmd.Flags().BoolVarP(&testerCfg.ValidateResourceManifest, "validate-resource-manifests", "", true, "Validating the resource manifests according to the schema")
+	cmd.Flags().StringVarP(&testerCfg.SchemaCache, "schema-cache", "", filepath.Join(homeDir, ".cache/kaptest/schema"), "Path to cache schemas used in resource manifest validation")
+
+	return cmd
 }
