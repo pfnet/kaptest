@@ -3,24 +3,63 @@ kind: Deployment
 metadata:
   name: ok
   namespace: foo
+  labels:
+    app: ok-deployment
 spec:
   replicas: 5
+  selector:
+    matchLabels:
+      app: ok-deployment
+  template:
+    metadata:
+      labels:
+        app: ok-deployment
+    spec:
+      containers:
+      - name: nginx
+        image: nginx
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: bad
   namespace: foo
+  labels:
+    app: bad-deployment
 spec:
   replicas: 6
+  selector:
+    matchLabels:
+      app: bad-deployment
+  template:
+    metadata:
+      labels:
+        app: bad-deployment
+    spec:
+      containers:
+      - name: nginx
+        image: nginx
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: ok
   namespace: not-exist
+  labels:
+    app: ok-deployment
 spec:
   replicas: 5
+  selector:
+    matchLabels:
+      app: ok-deployment
+  template:
+    metadata:
+      labels:
+        app: ok-deployment
+    spec:
+      containers:
+      - name: nginx
+        image: nginx
 ---
 apiVersion: v1
 kind: Namespace

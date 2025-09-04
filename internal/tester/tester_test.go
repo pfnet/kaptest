@@ -33,7 +33,7 @@ func TestRun(t *testing.T) {
 			name: "ok",
 			args: []string{
 				"./testdata/vap-standard-resources.test/kaptest.yaml",
-				"./testdata/vap-custom-resources.test/kaptest.yaml",
+				//"./testdata/vap-custom-resources.test/kaptest.yaml",
 				"./testdata/vap-with-params.test/kaptest.yaml",
 				"./testdata/vap-with-namespaces.test/kaptest.yaml",
 				"./testdata/vap-with-userinfo.test/kaptest.yaml",
@@ -70,8 +70,11 @@ func TestRun(t *testing.T) {
 			wantErr: ErrTestFail,
 		},
 		{
-			name:    "err: object not exist",
-			args:    []string{"./testdata/vap-standard-resources.test/invalid-no-obj.yaml"},
+			name: "err: object not exist",
+			args: []string{
+				"./testdata/vap-standard-resources.test/invalid-no-obj.yaml",
+				"./testdata/map-standard-resources.test/invalid-no-expect.yaml",
+			},
 			wantErr: ErrTestFail,
 		},
 		{

@@ -2,15 +2,41 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: ok
+  labels:
+    app: ok-deployment
 spec:
   replicas: 5
+  selector:
+    matchLabels:
+      app: ok-deployment
+  template:
+    metadata:
+      labels:
+        app: ok-deployment
+    spec:
+      containers:
+      - name: nginx
+        image: nginx
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: bad
+  labels:
+    app: bad-deployment
 spec:
   replicas: 6
+  selector:
+    matchLabels:
+      app: bad-deployment
+  template:
+    metadata:
+      labels:
+        app: bad-deployment
+    spec:
+      containers:
+      - name: nginx
+        image: nginx
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -18,8 +44,20 @@ metadata:
   name: immutable
   labels:
     immutable: "true"
+    app: immutable-deployment
 spec:
   replicas: 4
+  selector:
+    matchLabels:
+      app: immutable-deployment
+  template:
+    metadata:
+      labels:
+        app: immutable-deployment
+    spec:
+      containers:
+      - name: nginx
+        image: nginx
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -27,8 +65,20 @@ metadata:
   name: mutable
   labels:
     immutable: "false"
+    app: mutable-deployment
 spec:
   replicas: 4
+  selector:
+    matchLabels:
+      app: mutable-deployment
+  template:
+    metadata:
+      labels:
+        app: mutable-deployment
+    spec:
+      containers:
+      - name: nginx
+        image: nginx
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -36,8 +86,20 @@ metadata:
   name: deletable
   labels:
     deletable: "true"
+    app: deletable-deplyoment
 spec:
   replicas: 4
+  selector:
+    matchLabels:
+      app: deletable-deployment
+  template:
+    metadata:
+      labels:
+        app: deletable-deployment
+    spec:
+      containers:
+      - name: nginx
+        image: nginx
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -45,5 +107,17 @@ metadata:
   name: non-deletable
   labels:
     deletable: "false"
+    app: non-deletable-deplyoment
 spec:
   replicas: 4
+  selector:
+    matchLabels:
+      app: non-deletable-deployment
+  template:
+    metadata:
+      labels:
+        app: non-deletable-deployment
+    spec:
+      containers:
+      - name: nginx
+        image: nginx
