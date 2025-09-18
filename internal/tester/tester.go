@@ -200,7 +200,18 @@ func runEach(cfg TesterCmdConfig, manifestPath string) testResultSummary {
 			continue
 		}
 
-		mutator, err := kaptest.NewMutator(policy)
+		var mutator *kaptest.Mutator
+		var err error
+		if tt.Binding != "" {
+			binding, ok := loader.MapBindings[tt.Binding]
+			if !ok {
+				results = append(results, newBindingNotFoundResult(tt.Binding))
+				continue
+			}
+			mutator, err = kaptest.NewMutatorWithBinding(policy, binding)
+		} else {
+			mutator, err = kaptest.NewMutator(policy)
+		}
 		if err != nil {
 			panic(err)
 		}

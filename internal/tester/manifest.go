@@ -109,8 +109,9 @@ func (tc VAPTestCase) SummaryLine(pass bool, policy string, result string) strin
 }
 
 type TestsForSingleMapPolicy struct {
-	Policy string        `yaml:"policy"`
-	Tests  []MAPTestCase `yaml:"tests"`
+	Policy  string        `yaml:"policy"`
+	Binding string        `yaml:"binding,omitempty"`
+	Tests   []MAPTestCase `yaml:"tests"`
 }
 
 type MAPTestCase struct {

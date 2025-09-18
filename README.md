@@ -114,6 +114,7 @@ vapTestSuites:
     expect: <allow|deny|skip|error>
 mapTestSuites:
 - policy: <name> # MutatingAdmissionPolicy's name
+  binding: <name> # Optional: MutatingAdmissionPolicyBinding's name
   tests:
   - object:
       group: <group> # Optional
