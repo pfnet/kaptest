@@ -26,11 +26,13 @@ import (
 	"github.com/pfnet/kaptest"
 	"gopkg.in/yaml.v2"
 	v1 "k8s.io/api/admissionregistration/v1"
+	"k8s.io/api/admissionregistration/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 )
 
 var ErrTestFail = errors.New("test failed")
@@ -102,15 +104,15 @@ func runEach(cfg CmdConfig, manifestPath string) testResultSummary {
 	}
 	defer os.Chdir(pwd) //nolint:errcheck
 
-	// Load validatingAdmissionPolicies and other resources
+	// Load Policies and other resources
 	loader := NewResourceLoader()
-	loader.LoadVaps(manifests.ValidatingAdmissionPolicies)
+	loader.LoadPolicies(manifests.Policies)
 	loader.LoadResources(manifests.Resources)
 
 	results := []testResult{}
 
-	// Run test cases one by one
-	for _, tt := range manifests.TestSuites {
+	// Run test cases for VAP one by one
+	for _, tt := range manifests.VapTestSuites {
 		// Create Validator
 		vap, ok := loader.Vaps[tt.Policy]
 		if !ok {
@@ -145,14 +147,75 @@ func runEach(cfg CmdConfig, manifestPath string) testResultSummary {
 			slog.Debug("RUN:   ", "policy", tt.Policy, "expect", tc.Expect, "object", tc.Object.String(), "oldObject", tc.OldObject.String(), "param", tc.Param.String())
 			validationResult := validator.Validate(given)
 
-			results = append(results, newPolicyEvalResult(tt.Policy, tc, validationResult.Decisions))
+			results = append(results, newVAPEvalResult(tt.Policy, tc, validationResult.Decisions))
+		}
+	}
+
+	// Run test cases for MAP one by one
+	for _, tt := range manifests.MapTestSuites {
+		policy, ok := loader.Maps[tt.Policy]
+		if !ok {
+			results = append(results, newPolicyNotFoundResult(tt.Policy))
+			continue
+		}
+
+		mutator, err := kaptest.NewMutator(policy)
+		if err != nil {
+			panic(err)
+		}
+		for _, tc := range tt.Tests {
+			slog.Debug("SETUP: ", "policy", tt.Policy, "expect", tc.Expect, "object", tc.Object.String(), "oldObject", tc.OldObject.String(), "expectObject", tc.ExpectObject.String())
+
+			given, expectedObj, errs := newMutationParams(policy, tc, loader)
+			if errs != nil {
+				results = append(results, newPolicyEvalErrorResult(tt.Policy, tc, errs))
+				continue
+			}
+
+			matchedHooks, err := mutator.EvalMatchCondition(given)
+			if err != nil {
+				results = append(results, newPolicyEvalErrorResult(tt.Policy, tc, []error{err}))
+				continue
+			}
+
+			// if there is no matched hooks, it is considered to be not matched
+			if len(matchedHooks) == 0 {
+				results = append(results, newPolicyNotMatchConditionResult(tt.Policy, tc, "no matched hooks"))
+				continue
+			}
+
+			// check match results with hooks
+			matched := true
+			for _, h := range matchedHooks {
+				if h.Result.Error != nil {
+					results = append(results, newPolicyEvalErrorResult(tt.Policy, tc, []error{h.Result.Error}))
+					matched = false
+					break
+				}
+				if !h.Result.Matches {
+					results = append(results, newPolicyNotMatchConditionResult(tt.Policy, tc, h.Result.FailedConditionName))
+					matched = false
+					break
+				}
+			}
+			if !matched {
+				continue
+			}
+
+			slog.Debug("RUN:   ", "policy", tt.Policy, "expect", tc.Expect, "object", tc.Object.String(), "oldObject", tc.OldObject.String(), "expectOjbect", tc.ExpectObject.String())
+			mutatedObj, err := mutator.Mutate(given)
+			if err != nil {
+				results = append(results, newPolicyEvalErrorResult(tt.Policy, tc, []error{err}))
+			} else {
+				results = append(results, newMAPEvalResult(tt.Policy, tc, matchedHooks, expectedObj, mutatedObj))
+			}
 		}
 	}
 
 	return summarize(manifestPath, results, cfg.Verbose)
 }
 
-func newValidationParams(vap *v1.ValidatingAdmissionPolicy, tc TestCase, loader *ResourceLoader) (kaptest.ValidationParams, []error) {
+func newValidationParams(vap *v1.ValidatingAdmissionPolicy, tc VAPTestCase, loader *ResourceLoader) (kaptest.ValidationParams, []error) {
 	var errs []error
 	var err error
 	var obj, oldObj *unstructured.Unstructured
@@ -171,8 +234,11 @@ func newValidationParams(vap *v1.ValidatingAdmissionPolicy, tc TestCase, loader 
 	}
 
 	var paramObj *unstructured.Unstructured
-	if paramObj, err = getParamObj(loader, vap, tc.Param); err != nil {
-		errs = append(errs, fmt.Errorf("get param: %w", err))
+	if vap.Spec.ParamKind != nil {
+		paramGVK := schema.FromAPIVersionAndKind(vap.Spec.ParamKind.APIVersion, vap.Spec.ParamKind.Kind)
+		if paramObj, err = getParamObj(loader, paramGVK, tc.Param); err != nil {
+			errs = append(errs, fmt.Errorf("get param: %w", err))
+		}
 	}
 
 	var namespaceObj *corev1.Namespace
@@ -195,15 +261,91 @@ func newValidationParams(vap *v1.ValidatingAdmissionPolicy, tc TestCase, loader 
 	}, nil
 }
 
-func getParamObj(loader *ResourceLoader, vap *v1.ValidatingAdmissionPolicy, param NamespacedName) (*unstructured.Unstructured, error) {
-	if vap.Spec.ParamKind == nil {
-		return nil, nil
+func newMutationParams(mp *v1alpha1.MutatingAdmissionPolicy, tc MAPTestCase, loader *ResourceLoader) (kaptest.MutationParams, runtime.Object, []error) {
+	var errs []error
+	var err error
+	var obj, oldObj *unstructured.Unstructured
+	if !tc.Object.IsValid() && !tc.OldObject.IsValid() {
+		errs = append(errs, fmt.Errorf("object or oldObject must be given and valid"))
+	} else {
+		if obj, err = loader.GetResource(tc.Object); err != nil {
+			errs = append(errs, fmt.Errorf("get object: %w", err))
+		}
+		if oldObj, err = loader.GetResource(tc.OldObject); err != nil {
+			errs = append(errs, fmt.Errorf("get oldObject: %w", err))
+		}
+		if obj == nil && oldObj == nil {
+			errs = append(errs, fmt.Errorf("neither object nor oldObject found"))
+		}
 	}
+	var expectObj *unstructured.Unstructured
+	if tc.Expect == Mutate { //nolint
+		if !tc.ExpectObject.IsValid() {
+			errs = append(errs, fmt.Errorf("expectObject must be given when mutate expected"))
+		} else {
+			if expectObj, err = loader.GetResource(tc.ExpectObject); err != nil {
+				errs = append(errs, fmt.Errorf("get expectObject: %w", err))
+			}
+			if expectObj == nil {
+				errs = append(errs, fmt.Errorf("expectObject must be given when mutate expected"))
+			} else if !tc.DisableNameOverwrite {
+				expectObj.SetName(obj.GetName())
+			}
+		}
+	}
+
+	var paramObj *unstructured.Unstructured
+	if mp.Spec.ParamKind != nil {
+		paramGVK := schema.FromAPIVersionAndKind(mp.Spec.ParamKind.APIVersion, mp.Spec.ParamKind.Kind)
+		paramObj, err = getParamObj(loader, paramGVK, tc.Param)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("get param: %w", err))
+		}
+	}
+
+	var namespaceObj *corev1.Namespace
+	if namespaceObj, err = getNamespaceObj(loader, obj, oldObj); err != nil {
+		errs = append(errs, fmt.Errorf("get namespace: %w", err))
+	}
+
+	userInfo := NewK8sUserInfo(tc.UserInfo)
+
+	// We need to ensure the object follows scheme
+	// by converting unstructured object into typed object
+	// TODO: support CRD
+	objs := []*unstructured.Unstructured{obj, oldObj, paramObj, expectObj}
+	typedObjs := []runtime.Object{nil, nil, nil, nil}
+	for idx, o := range objs {
+		if o == nil {
+			continue
+		}
+		typedObjs[idx], err = convertToTyped(o)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("failed to convert %s to typed object: %w", o.GetObjectKind().GroupVersionKind(), err))
+		}
+	}
+
+	if len(errs) > 0 {
+		return kaptest.MutationParams{}, nil, errs
+	}
+
+	param := kaptest.MutationParams{
+		Object:       typedObjs[0],
+		OldObject:    typedObjs[1],
+		ParamObj:     typedObjs[2],
+		NamespaceObj: namespaceObj,
+		UserInfo:     &userInfo,
+	}
+
+	return param, typedObjs[3], nil
+}
+
+func getParamObj(loader *ResourceLoader, paramGVK schema.GroupVersionKind, param NamespacedName) (*unstructured.Unstructured, error) {
 	if param.Name == "" {
 		return nil, fmt.Errorf("param name is empty")
 	}
 
-	paramNGVK := NewNameWithGVK(schema.FromAPIVersionAndKind(vap.Spec.ParamKind.APIVersion, vap.Spec.ParamKind.Kind), param)
+	paramNGVK := NewNameWithGVK(paramGVK, param)
 	paramObj, err := loader.GetResource(paramNGVK)
 	if err != nil {
 		return nil, fmt.Errorf("get param: %w", err)
@@ -234,6 +376,10 @@ func getNamespaceObj(loader *ResourceLoader, obj, oldObj *unstructured.Unstructu
 	if uNamespaceObj == nil {
 		slog.Info("use default namespace with no labels and annotations", "namespace", namespaceName)
 		return &corev1.Namespace{
+			TypeMeta: metav1.TypeMeta{
+				APIVersion: "v1",
+				Kind:       "Namespace",
+			},
 			ObjectMeta: metav1.ObjectMeta{
 				Name: namespaceName,
 			},
@@ -258,4 +404,25 @@ func getNamespaceName(obj, oldObj *unstructured.Unstructured) (string, error) {
 		return "", errors.New("namespace is different between object and oldObject")
 	}
 	return obj.GetNamespace(), nil
+}
+
+func convertToTyped(obj *unstructured.Unstructured) (runtime.Object, error) {
+	scheme := runtime.NewScheme()
+	err := clientgoscheme.AddToScheme(scheme)
+	if err != nil {
+		return nil, fmt.Errorf("failed to register scheme: %w", err)
+	}
+
+	gvk := obj.GroupVersionKind()
+	newTypedObject, err := scheme.New(gvk)
+	if err != nil {
+		return nil, fmt.Errorf("GVK %s is not registered in the scheme: %w", gvk, err)
+	}
+
+	err = runtime.DefaultUnstructuredConverter.FromUnstructured(obj.Object, newTypedObject)
+	if err != nil {
+		return nil, fmt.Errorf("failed to convert unstructured to typed object: %w", err)
+	}
+
+	return newTypedObject, nil
 }

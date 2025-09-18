@@ -1,0 +1,23 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ok
+  namespace: foo
+spec:
+  replicas: 5
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: small
+  namespace: foo
+spec:
+  replicas: 1
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: config1
+  namespace: hoge
+data:
+  maxReplicas: "5"

@@ -1,17 +1,18 @@
 policies:
-- ../vap-with-namespaces.yaml
+- ../map-with-params.yaml
 resources:
 - resources.yaml
-vapTestSuites:
+mapTestSuites:
 - policy: deployment-replicas
   tests:
   - object:
       kind: Deployment
+      name: small
+      namespace: foo
+    param:
+      name: not-exist
+    expect: mutate
+    expectObject:
+      kind: Deployment
       name: ok
       namespace: foo
-    expect: admit
-  - object:
-      kind: Deployment
-      name: bad
-      namespace: foo
-    expect: deny

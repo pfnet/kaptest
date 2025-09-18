@@ -1,8 +1,8 @@
-validatingAdmissionPolicies:
+policies:
 - ../simple-policy.yaml
 resources:
 - resources.yaml
-testSuites:
+vapTestSuites:
 - policy: simple-policy
   tests:
   - object:
@@ -19,3 +19,17 @@ testSuites:
       kind: Deployment
       name: good-deployment
     expect: error
+mapTestSuites:
+- policy: simple-policy
+  tests:
+  - object: 
+      kind: Deployment
+      name: good-deployment
+    expect: mutate
+    expectObject:
+      kind: Deployment
+      name: more-replicas-deployment
+  - object: 
+      kind: Deployment
+      name: many-replicas-deployment
+    expect: skip

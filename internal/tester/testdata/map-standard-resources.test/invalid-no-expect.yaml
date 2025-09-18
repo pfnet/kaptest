@@ -1,0 +1,14 @@
+policies:
+- ../map-standard-resources.yaml
+resources:
+- resources.yaml
+mapTestSuites:
+- policy: simple-policy
+  tests:
+  - object: 
+      kind: Deployment
+      name: base
+    expect: mutate
+    expectObject:
+      kind: Deployment
+      name: not-exist

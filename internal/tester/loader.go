@@ -17,6 +17,7 @@ limitations under the License.
 package tester
 
 import (
+	"bufio"
 	"errors"
 	"fmt"
 	"io"
@@ -24,48 +25,86 @@ import (
 	"os"
 
 	v1 "k8s.io/api/admissionregistration/v1"
+	"k8s.io/api/admissionregistration/v1alpha1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/serializer"
 	kyaml "k8s.io/apimachinery/pkg/util/yaml"
 )
 
 type ResourceLoader struct {
 	Vaps      map[string]*v1.ValidatingAdmissionPolicy
+	Maps      map[string]*v1alpha1.MutatingAdmissionPolicy
 	Resources map[NameWithGVK]*unstructured.Unstructured
 }
 
 func NewResourceLoader() *ResourceLoader {
 	return &ResourceLoader{
 		Vaps:      map[string]*v1.ValidatingAdmissionPolicy{},
+		Maps:      map[string]*v1alpha1.MutatingAdmissionPolicy{},
 		Resources: map[NameWithGVK]*unstructured.Unstructured{},
 	}
 }
 
-func (r *ResourceLoader) LoadVaps(paths []string) {
+func (r *ResourceLoader) LoadPolicies(paths []string) {
 	for _, filePath := range paths {
 		yamlFile, err := os.Open(filePath)
 		if err != nil {
 			slog.Error("read yaml file", "error", err)
 			continue
 		}
-		decoder := kyaml.NewYAMLToJSONDecoder(yamlFile)
+		yamlReader := kyaml.NewYAMLReader(bufio.NewReader(yamlFile))
+		s := runtime.NewScheme()
+
+		// supports admissionregistration.k8s.io/v1
+		if err := v1.AddToScheme(s); err != nil {
+			panic(fmt.Errorf("failed to add admissionregistration.k8s.io/v1 to scheme: %w", err))
+		}
+		// supports admissionregistration.k8s.io/v1alpha1 for MutatingAdmissionPolicy
+		if err := v1alpha1.AddToScheme(s); err != nil {
+			panic(fmt.Errorf("failed to add admissionregistration.k8s.io/v1alpha1 to scheme: %w", err))
+		}
+		decoder := serializer.NewCodecFactory(s).UniversalDeserializer()
 		for {
-			var vap v1.ValidatingAdmissionPolicy
-			if err := decoder.Decode(&vap); err != nil {
-				if errors.Is(err, io.EOF) {
-					break
+			b, err := yamlReader.Read()
+			if errors.Is(err, io.EOF) {
+				break
+			}
+			if err != nil {
+				slog.Warn("failed to read yaml file", "error", err)
+				continue
+			}
+
+			obj, gvk, err := decoder.Decode(b, nil, nil)
+			if err != nil {
+				slog.Warn("failed to decode policy", "error", err)
+				continue
+			}
+			switch gvk.Kind {
+			case "ValidatingAdmissionPolicy":
+				if gvk.Version != "v1" {
+					slog.Warn("only v1 ValidatingAdmissionPolicy is supported", "version", gvk.Version)
+					continue
 				}
-				slog.Warn("failed to decode ValidatingAdmissionPolicy", "error", err)
-				continue
+				vap := obj.(*v1.ValidatingAdmissionPolicy)
+				r.Vaps[vap.Name] = vap
+			case "MutatingAdmissionPolicy":
+				if gvk.Version != "v1alpha1" {
+					slog.Warn("only v1alpha1 MutatingAdmissionPolicy is supported", "version", gvk.Version)
+					continue
+				}
+				m := obj.(*v1alpha1.MutatingAdmissionPolicy)
+				r.Maps[m.Name] = m
+			default:
+				slog.Warn("unexpected manifest", "kind", gvk.Kind)
 			}
-			if vap.Kind != "ValidatingAdmissionPolicy" {
-				slog.Debug("skipped non-ValidatingAdmissionPolicy resource", "kind", vap.Kind, "name", vap.Name)
-				continue
-			}
-			r.Vaps[vap.Name] = &vap
 		}
 	}
 	for k := range r.Vaps {
 		slog.Debug("ValidatingAdmissionPolicy laoded:", "name", k)
+	}
+	for k := range r.Maps {
+		slog.Debug("MutatingAdmissionPolicy loaded:", "name", k)
 	}
 }
 

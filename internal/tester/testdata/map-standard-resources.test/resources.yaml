@@ -1,0 +1,19 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: base
+  namespace: default
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: add-label-mutated
+  namespace: default
+  labels:
+    environment: "test"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rewrite-name-mutated
+  namespace: default

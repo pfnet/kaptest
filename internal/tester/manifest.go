@@ -17,6 +17,9 @@ limitations under the License.
 package tester
 
 import (
+	"fmt"
+	"strings"
+
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apiserver/pkg/authentication/user"
@@ -24,41 +27,48 @@ import (
 
 // TestManifests is a struct to represent the whole test manifest file.
 type TestManifests struct {
-	ValidatingAdmissionPolicies []string               `yaml:"validatingAdmissionPolicies,omitempty"`
-	Resources                   []string               `yaml:"resources,omitempty"`
-	TestSuites                  []TestsForSinglePolicy `yaml:"testSuites,omitempty"`
+	Policies      []string                  `yaml:"policies,omitempty"`
+	Resources     []string                  `yaml:"resources,omitempty"`
+	VapTestSuites []TestsForSingleVapPolicy `yaml:"vapTestSuites,omitempty"`
+	MapTestSuites []TestsForSingleMapPolicy `yaml:"mapTestSuites,omitempty"`
 }
 
 func (t TestManifests) IsValid() (bool, string) {
-	if len(t.ValidatingAdmissionPolicies) == 0 {
-		return false, "at least one validatingAdmissionPolicies is required"
+	if len(t.Policies) == 0 {
+		return false, "at least one policies is required"
 	}
 	if len(t.Resources) == 0 {
 		return false, "at least one resources is required"
 	}
-	if len(t.TestSuites) == 0 {
-		return false, "at least one testSuites is required"
+	if len(t.VapTestSuites) == 0 && len(t.MapTestSuites) == 0 {
+		return false, "at least one vapTestSuites or mapTestSuites is required"
 	}
 	return true, ""
 }
 
-// TestsForSinglePolicy is a struct to aggregate multiple test cases for a single policy.
-type TestsForSinglePolicy struct {
-	Policy string     `yaml:"policy"`
-	Tests  []TestCase `yaml:"tests"`
+// TestsForSingleVapPolicy is a struct to aggregate multiple test cases for a single policy.
+type TestsForSingleVapPolicy struct {
+	Policy string        `yaml:"policy"`
+	Tests  []VAPTestCase `yaml:"tests"`
 }
 
 type PolicyDecisionExpect string
 
 const (
-	Admit PolicyDecisionExpect = "admit"
-	Deny  PolicyDecisionExpect = "deny"
-	Error PolicyDecisionExpect = "error"
-	Skip  PolicyDecisionExpect = "skip"
+	Admit  PolicyDecisionExpect = "admit"
+	Deny   PolicyDecisionExpect = "deny"
+	Error  PolicyDecisionExpect = "error"
+	Skip   PolicyDecisionExpect = "skip"
+	Mutate PolicyDecisionExpect = "mutate"
 )
 
+type TestCase interface {
+	GetExpect() PolicyDecisionExpect
+	SummaryLine(pass bool, policy string, result string) string
+}
+
 // TestCase is a struct to represent a single test case.
-type TestCase struct {
+type VAPTestCase struct {
 	Object    NameWithGVK          `yaml:"object,omitempty"`
 	OldObject NameWithGVK          `yaml:"oldObject,omitempty"`
 	Param     NamespacedName       `yaml:"param,omitempty"`
@@ -66,6 +76,76 @@ type TestCase struct {
 	UserInfo  UserInfo             `yaml:"userInfo,omitempty"`
 	// TODO: Support message test
 	// Message   string                              `yaml:"message"`
+}
+
+var _ TestCase = &VAPTestCase{}
+
+func (tc VAPTestCase) GetExpect() PolicyDecisionExpect {
+	return tc.Expect
+}
+
+func (tc VAPTestCase) SummaryLine(pass bool, policy string, result string) string {
+	summary := "[VAP]"
+	if pass {
+		summary += " PASS"
+	} else {
+		summary += " FAIL"
+	}
+
+	summary += fmt.Sprintf(": %s", policy)
+	if tc.Object.IsValid() && tc.OldObject.IsValid() { //nolint:gocritic
+		summary += fmt.Sprintf(" - (UPDATE) %s -> %s", tc.OldObject.String(), tc.Object.NamespacedName.String())
+	} else if tc.Object.IsValid() {
+		summary += fmt.Sprintf(" - (CREATE) %s", tc.Object.String())
+	} else if tc.OldObject.IsValid() {
+		summary += fmt.Sprintf(" - (DELETE) %s", tc.OldObject.String())
+	}
+	if tc.Param.IsValid() {
+		summary += fmt.Sprintf(" (Param: %s)", tc.Param.String())
+	}
+	summary += fmt.Sprintf(" - %s ==> %s", strings.ToUpper(string(tc.Expect)), strings.ToUpper(result))
+	return summary
+}
+
+type TestsForSingleMapPolicy struct {
+	Policy string        `yaml:"policy"`
+	Tests  []MAPTestCase `yaml:"tests"`
+}
+
+type MAPTestCase struct {
+	Object               NameWithGVK          `yaml:"object,omitempty"`
+	OldObject            NameWithGVK          `yaml:"oldObject,omitempty"`
+	Param                NamespacedName       `yaml:"param,omitempty"`
+	Expect               PolicyDecisionExpect `yaml:"expect"`
+	ExpectObject         NameWithGVK          `yaml:"expectObject,omitempty"`
+	UserInfo             UserInfo             `yaml:"userInfo,omitempty"`
+	DisableNameOverwrite bool                 `yaml:"disableNameOverwrite,omitempty"`
+}
+
+var _ TestCase = &MAPTestCase{}
+
+func (tc MAPTestCase) GetExpect() PolicyDecisionExpect {
+	return tc.Expect
+}
+
+func (tc MAPTestCase) SummaryLine(pass bool, policy string, result string) string {
+	summary := "[MAP]"
+	if pass {
+		summary += " PASS"
+	} else {
+		summary += " FAIL"
+	}
+
+	summary += fmt.Sprintf(": %s", policy)
+	if tc.Object.IsValid() && tc.OldObject.IsValid() { //nolint:gocritic
+		summary += fmt.Sprintf(" - (UPDATE) %s -> %s", tc.OldObject.String(), tc.Object.NamespacedName.String())
+	} else if tc.Object.IsValid() {
+		summary += fmt.Sprintf(" - (CREATE) %s", tc.Object.String())
+	} else if tc.OldObject.IsValid() {
+		summary += fmt.Sprintf(" - (DELETE) %s", tc.OldObject.String())
+	}
+	summary += fmt.Sprintf(" - %s ==> %s", strings.ToUpper(string(tc.Expect)), strings.ToUpper(result))
+	return summary
 }
 
 type GVK struct {

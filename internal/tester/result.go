@@ -20,6 +20,11 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/google/go-cmp/cmp"
+	"github.com/pfnet/kaptest"
+	"k8s.io/apimachinery/pkg/api/equality"
+	"k8s.io/apimachinery/pkg/api/meta"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apiserver/pkg/admission/plugin/policy/validating"
 )
 
@@ -31,39 +36,16 @@ type testResult interface {
 	String(verbose bool) string
 }
 
-func summaryLine(pass bool, policy string, testCase TestCase, result string) string {
-	var summary string
-	if pass {
-		summary = "PASS"
-	} else {
-		summary = "FAIL"
-	}
-
-	summary += fmt.Sprintf(": %s", policy)
-	if testCase.Object.IsValid() && testCase.OldObject.IsValid() { //nolint:gocritic
-		summary += fmt.Sprintf(" - (UPDATE) %s -> %s", testCase.OldObject.String(), testCase.Object.NamespacedName.String())
-	} else if testCase.Object.IsValid() {
-		summary += fmt.Sprintf(" - (CREATE) %s", testCase.Object.String())
-	} else if testCase.OldObject.IsValid() {
-		summary += fmt.Sprintf(" - (DELETE) %s", testCase.OldObject.String())
-	}
-	if testCase.Param.IsValid() {
-		summary += fmt.Sprintf(" (Param: %s)", testCase.Param.String())
-	}
-	summary += fmt.Sprintf(" - %s ==> %s", strings.ToUpper(string(testCase.Expect)), strings.ToUpper(result))
-	return summary
-}
-
-type policyEvalResult struct {
+type vapEvalResult struct {
 	Policy    string
-	TestCase  TestCase
+	TestCase  VAPTestCase
 	Decisions []validating.PolicyDecision
 	Result    validating.PolicyDecisionEvaluation
 }
 
-var _ testResult = &policyEvalResult{}
+var _ testResult = &vapEvalResult{}
 
-func newPolicyEvalResult(policy string, tc TestCase, decisions []validating.PolicyDecision) *policyEvalResult {
+func newVAPEvalResult(policy string, tc VAPTestCase, decisions []validating.PolicyDecision) *vapEvalResult {
 	result := validating.EvalAdmit
 	for _, d := range decisions {
 		if d.Evaluation == validating.EvalDeny {
@@ -74,7 +56,7 @@ func newPolicyEvalResult(policy string, tc TestCase, decisions []validating.Poli
 		}
 	}
 
-	return &policyEvalResult{
+	return &vapEvalResult{
 		Policy:    policy,
 		TestCase:  tc,
 		Decisions: decisions,
@@ -82,12 +64,12 @@ func newPolicyEvalResult(policy string, tc TestCase, decisions []validating.Poli
 	}
 }
 
-func (r *policyEvalResult) Pass() bool {
-	return string(r.Result) == string(r.TestCase.Expect)
+func (r *vapEvalResult) Pass() bool {
+	return string(r.Result) == string(r.TestCase.GetExpect())
 }
 
-func (r *policyEvalResult) String(verbose bool) string {
-	summary := summaryLine(r.Pass(), r.Policy, r.TestCase, string(r.Result))
+func (r *vapEvalResult) String(verbose bool) string {
+	summary := r.TestCase.SummaryLine(r.Pass(), r.Policy, string(r.Result))
 	out := []string{summary}
 	if !r.Pass() || verbose {
 		for _, d := range r.Decisions {
@@ -97,6 +79,57 @@ func (r *policyEvalResult) String(verbose bool) string {
 				out = append(out, fmt.Sprintf("--- ERROR: reason %q, message %q", d.Reason, d.Message))
 			}
 		}
+	}
+	return strings.Join(out, "\n")
+}
+
+type mapEvalResult struct {
+	policy         string
+	testCase       MAPTestCase
+	matchResults   []kaptest.MatchResult
+	expectedObject runtime.Object
+	mutatedObject  runtime.Object
+}
+
+var _ testResult = &vapEvalResult{}
+
+func newMAPEvalResult(policy string, tc MAPTestCase, matchResults []kaptest.MatchResult, expectedObj, mutatedObj runtime.Object) *mapEvalResult {
+	return &mapEvalResult{
+		policy:         policy,
+		testCase:       tc,
+		matchResults:   matchResults,
+		expectedObject: expectedObj,
+		mutatedObject:  mutatedObj,
+	}
+}
+
+func (r *mapEvalResult) Pass() bool {
+	return equality.Semantic.DeepEqual(r.expectedObject, r.mutatedObject)
+}
+
+func (r *mapEvalResult) String(verbose bool) string {
+	summary := r.testCase.SummaryLine(r.Pass(), r.policy, string(Mutate))
+	out := []string{summary}
+	if r.Pass() && !verbose {
+		return strings.Join(out, "\n")
+	}
+
+	for _, h := range r.matchResults {
+		o := fmt.Sprintf("--- Binding: %s ", h.Invocation.Binding.GetName())
+		if h.Invocation.Param != nil {
+			metaAcc, err := meta.Accessor(h.Invocation.Param)
+			if err != nil {
+				o += fmt.Sprintf("Param: failed to get param %v", err)
+			} else {
+				o += fmt.Sprintf("Param: %s %s", h.Invocation.Param.GetObjectKind().GroupVersionKind(), metaAcc.GetName())
+			}
+		} else {
+			o += "Param: nil"
+		}
+		out = append(out, o)
+	}
+	if !r.Pass() {
+		out = append(out, cmp.Diff(r.expectedObject, r.mutatedObject))
 	}
 	return strings.Join(out, "\n")
 }
@@ -142,7 +175,7 @@ func (r *setupErrorResult) Pass() bool {
 }
 
 func (r *setupErrorResult) String(verbose bool) string {
-	summary := summaryLine(r.Pass(), r.Policy, r.TestCase, "SETUP ERROR")
+	summary := r.TestCase.SummaryLine(r.Pass(), r.Policy, "SETUP ERROR")
 	out := []string{summary}
 	for _, err := range r.Errors {
 		out = append(out, fmt.Sprintf("--- ERROR: %v", err))
@@ -167,11 +200,11 @@ func newPolicyNotMatchConditionResult(policy string, tc TestCase, failedConditio
 }
 
 func (r *policyNotMatchConditionResult) Pass() bool {
-	return r.TestCase.Expect == Skip
+	return r.TestCase.GetExpect() == Skip
 }
 
 func (r *policyNotMatchConditionResult) String(verbose bool) string {
-	summary := summaryLine(r.Pass(), r.Policy, r.TestCase, "SKIP")
+	summary := r.TestCase.SummaryLine(r.Pass(), r.Policy, "SKIP")
 	out := []string{summary}
 	if !r.Pass() || verbose {
 		out = append(out, fmt.Sprintf("--- NOT MATCH: condition-name %q", r.FailedConditionName))
@@ -197,11 +230,11 @@ func newPolicyEvalErrorResult(policy string, tc TestCase, errs []error) *policyE
 }
 
 func (r *policyEvalErrorResult) Pass() bool {
-	return r.TestCase.Expect == Error
+	return r.TestCase.GetExpect() == Error
 }
 
 func (r *policyEvalErrorResult) String(verbose bool) string {
-	summary := summaryLine(r.Pass(), r.Policy, r.TestCase, "ERROR")
+	summary := r.TestCase.SummaryLine(r.Pass(), r.Policy, "ERROR")
 	out := []string{summary}
 	if !r.Pass() || verbose {
 		for _, err := range r.Errors {

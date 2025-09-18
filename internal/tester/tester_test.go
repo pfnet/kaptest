@@ -33,6 +33,10 @@ func TestRun(t *testing.T) {
 				"./testdata/vap-with-params.test/kaptest.yaml",
 				"./testdata/vap-with-namespaces.test/kaptest.yaml",
 				"./testdata/vap-with-userinfo.test/kaptest.yaml",
+				"./testdata/map-standard-resources.test/kaptest.yaml",
+				"./testdata/map-with-params.test/kaptest.yaml",
+				"./testdata/map-with-namespaces.test/kaptest.yaml",
+				"./testdata/map-with-userinfo.test/kaptest.yaml",
 			},
 			wantErr: nil,
 		},
@@ -72,13 +76,19 @@ func TestRun(t *testing.T) {
 			wantErr: ErrTestFail,
 		},
 		{
-			name:    "err: params not exist",
-			args:    []string{"./testdata/vap-with-params.test/invalid-no-params.yaml"},
+			name: "err: params not exist",
+			args: []string{
+				"./testdata/vap-with-params.test/invalid-no-params.yaml",
+				"./testdata/map-with-params.test/invalid-no-params.yaml",
+			},
 			wantErr: ErrTestFail,
 		},
 		{
-			name:    "err: namespace not exist",
-			args:    []string{"./testdata/vap-with-namespaces.test/invalid-no-namespace.yaml"},
+			name: "err: namespace not exist",
+			args: []string{
+				"./testdata/vap-with-namespaces.test/invalid-no-namespace.yaml",
+				"./testdata/map-with-namespaces.test/invalid-no-namespace.yaml",
+			},
 			wantErr: ErrTestFail,
 		},
 	}

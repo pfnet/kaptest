@@ -2,11 +2,11 @@
 
 **Kubernetes Admission Policy TESTing tool**
 
-Kaptest is a testing tool to check the CEL expressions of [Validating Admission Policy](https://kubernetes.io/docs/reference/access-authn-authz/validating-admission-policy/).
+Kaptest is a testing tool to check the CEL expressions of [Validating Admission Policy](https://kubernetes.io/docs/reference/access-authn-authz/validating-admission-policy/) and [Mutating Admission Policy](https://kubernetes.io/docs/reference/access-authn-authz/mutating-admission-policy/). 
 
 Kaptest specializes in evaluating CEL expressions.
 It allows you to perform fast and simple testing of CEL expressions,
-without having to start the kube-apiserver, create the `ValidatingAdmissionPolicy` and parameter resources, or link it to the target resources using `ValidatingAdmissionPolicyBinding`.
+without having to start the kube-apiserver, create the `ValidatingAdmissionPolicy`, `MutatingAdmissionPolicy`, and parameter resources, or link it to the target resources using `ValidatingAdmissionPolicyBinding`.
 
 ## Installation
 
@@ -21,26 +21,26 @@ tar -xvf "kaptest_${KAPTEST_VERSION}_${OS}_${ARCH}.tar.gz"
 
 ### Setup Test Manifests
 
-If you want to create a test for `./validatingadmissionpolicy.yaml`, run the following command:
+If you want to create a test for `./policy.yaml`, run the following command:
 
 ```shell
-kaptest init validatingadmissionpolicy.yaml
+kaptest init policy.yaml
 ```
 
-This will create a `./validatingadmissionpolicy.test` directory and generate a skeleton for writing test cases.
+This will create a `./policy.test` directory and generate a skeleton for writing test cases.
 
 ```shell
-$ tree validationgadmissionpolicy.test/
-validationgadmissionpolicy.test/
+$ tree policy.test
+policy.test
 ├── kaptest.yaml
 └── resources.yaml
 
-$ cat validationgadmissionpolicy.test/kaptest.yaml
-validatingAdmissionPolicies:
-- ../validationgadmissionpolicy.yaml
+$ cat policy.test/kaptest.yaml
+policies:
+- ../policy.yaml
 resources:
 - resources.yaml
-testSuites:
+vapTestSuites:
 - policy: simple-policy
   tests:
   - object:
@@ -51,6 +51,26 @@ testSuites:
       kind: CHANGEME
       name: bad
     expect: deny
+- policy: error-policy
+  tests:
+  - object:
+      kind: CHANGEME
+      name: ok
+    expect: admit
+  - object:
+      kind: CHANGEME
+      name: bad
+    expect: deny
+mapTestSuites:
+- policy: simple-policy
+  tests:
+  - object:
+      kind: CHANGEME
+      name: mutated
+    expect: mutate
+    expectObject:
+      kind: CHANGEME
+      name: mutated
 ```
 
 ### Test File Structures
@@ -60,13 +80,13 @@ There are no restrictions on the test file names. Although the skeleton created 
 Test files should be written in the following format:
 
 ```yaml
-validatingAdmissionPolicies:
+policies:
 - <path/to/policy.yaml>
 - <path/to/policy.yaml>
 resources:
 - <path/to/resource.yaml>
 - <path/to/resource.yaml>
-testSuites:
+vapTestSuites:
 - policy: <name> # ValidatingAdmissionPolicy's name
   tests:
   - object:
@@ -81,7 +101,7 @@ testSuites:
       kind: <kind> # Required
       namespace: <namespace> # Optional
       name: <name> # Required
-    param: # GVK of Params is omitted since it is defined by `spec.ParamKind` field in ValidatingAdmissionPolicy
+    param: # GVK of Param is omitted since it is defined by `spec.ParamKind` field in ValidatingAdmissionPolicy
       namespace: <namespace> # Optional
       name: <name> # Required
     userInfo: # The same struct as request.userInfo
@@ -89,9 +109,39 @@ testSuites:
       groups: <groups>
       extra: ...
     expect: <allow|deny|skip|error>
+mapTestSuites:
+- policy: <name> # MutatingAdmissionPolicy's name
+  tests:
+  - object:
+      group: <group> # Optional
+      version: <version> # Optional
+      kind: <kind> # Required
+      namespace: <namespace> # Optional: It is needed to match with a resource whose namespace is set.
+      name: <name> # Required
+    oldObject:
+      group: <group> # Optional
+      version: <version> # Optional
+      kind: <kind> # Required
+      namespace: <namespace> # Optional
+      name: <name> # Required
+    param: # GVK of Param is omitted since it is defined by `spec.ParamKind` field in MutatingAdmissionPolicy
+      namespace: <namespace> # Optional
+      name: <name> # Required
+    userInfo: # The same struct as request.userInfo
+      user: <sub>
+      groups: <groups>
+      extra: ...
+    expect: <mutate|skip|error>
+    expectObject:
+      group: <group> # Optional
+      version: <version> # Optional
+      kind: <kind> # Required
+      namespace: <namespace> # Optional
+      name: <name> # Required
+    disableNameOverwrite: <true|false> # Optional: disable to overwrite expectObject's name with object's name
 ```
 
-Resources specified in the `object`, `oldObject`, `param`, and `namespace` fields of the test cases must be described in the YAML files specified in the `resources` field.
+Resources specified in the `object`, `oldObject`, `param`, `namespace`, and `expectObject` fields of the test cases must be described in the YAML files specified in the `resources` field.
 
 ### Run test
 
@@ -117,7 +167,8 @@ Kaptest focuses on evaluating CEL expressions, so even when an error occurs or `
 
 - **allow**: When all `matchConditions` and `validations` are evaluated as `true`
 - **deny**: When all `matchConditions` are evaluated as `true`, and at least one `validation` is evaluated as `false`
-- **skip**: When at least one `matchCondition` is evaluated as `false`
+- **mutate**: When mutating hooks found and the object is mutated, and the mutated object is equal to expectObject 
+- **skip**: When at least one `matchCondition` is evaluated as `false` in VAP or no mutating hooks found in MAP
 - **error**: When at least one `matchCondition` or `validation` cannot be evaluated
 
 Even if you configure the `spec.failurePolicy`, it will not affect the test results.

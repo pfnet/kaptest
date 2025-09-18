@@ -1,8 +1,8 @@
-validatingAdmissionPolicies:
+policies:
 - ../vap-custom-resources.yaml
 resources:
 - resources.yaml
-testSuites:
+vapTestSuites:
 - policy: httpproxy-auth
   tests:
   - object:

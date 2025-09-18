@@ -1,10 +1,10 @@
-validatingAdmissionPolicies:
+policies:
 - ../complicated-policy.yaml
 resources:
 - resources.yaml
 - params.yaml
 - namespace.yaml
-testSuites:
+vapTestSuites:
 - policy: policy-with-params
   tests:
   - object:
@@ -31,3 +31,24 @@ testSuites:
       name: bad-deployment-with-namespace
       namespace: foo
     expect: deny
+mapTestSuites:
+- policy: policy-with-params
+  tests:
+  - object: 
+      kind: Deployment
+      name: less-replicas-deployment
+    param:
+      name: config
+    expect: mutate
+    expectObject:
+      kind: Deployment
+      name: good-deployment
+- policy: policy-with-namespace
+  tests:
+  - object: 
+      kind: Deployment
+      name: less-replicas-deployment-with-namespace
+    expect: mutate
+    expectObject:
+      kind: Deployment
+      name: good-deployment-with-namespace

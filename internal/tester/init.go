@@ -19,14 +19,12 @@ package tester
 import (
 	"errors"
 	"fmt"
-	"io"
 	"log/slog"
+	"maps"
 	"os"
 	"path/filepath"
 
 	"gopkg.in/yaml.v2"
-	v1 "k8s.io/api/admissionregistration/v1"
-	kyaml "k8s.io/apimachinery/pkg/util/yaml"
 )
 
 const (
@@ -82,14 +80,13 @@ func createRootManifest(targetFilePath string) error {
 		return fmt.Errorf("file already exists: %s", p)
 	}
 
-	targetPolicyNames, err := getPolicyNames(targetFilePath)
-	if err != nil {
-		return fmt.Errorf("get test target policies: %w", err)
-	}
-	slog.Debug(fmt.Sprintf("test target policies: %v", targetPolicyNames))
+	loader := NewResourceLoader()
+	loader.LoadPolicies([]string{targetFilePath})
+	slog.Debug(fmt.Sprintf("test target ValidatingAdmissionPolicies: %v", maps.Keys(loader.Vaps)))
+	slog.Debug(fmt.Sprintf("test target MutatingAdmissionPolicies: %v", maps.Keys(loader.Maps)))
 
 	fileName := filepath.Base(targetFilePath)
-	manifestBuf := baseManifest(fileName, targetPolicyNames)
+	manifestBuf := baseManifest(fileName, loader)
 
 	if err := os.WriteFile(p, manifestBuf, 0o644); err != nil { //nolint:gosec
 		return fmt.Errorf("create %s: %w", rootManifestName, err)
@@ -116,16 +113,17 @@ func testDir(targetFilePath string) string {
 	return targetFilePath[:len(targetFilePath)-len(filepath.Ext(targetFilePath))] + ".test"
 }
 
-func baseManifest(targetPath string, policies []string) []byte {
+func baseManifest(targetPath string, loader *ResourceLoader) []byte {
 	m := TestManifests{
-		ValidatingAdmissionPolicies: []string{filepath.Join("..", targetPath)},
-		Resources:                   []string{resourceManifestName},
-		TestSuites:                  []TestsForSinglePolicy{},
+		Policies:      []string{filepath.Join("..", targetPath)},
+		Resources:     []string{resourceManifestName},
+		VapTestSuites: []TestsForSingleVapPolicy{},
+		MapTestSuites: []TestsForSingleMapPolicy{},
 	}
-	for _, p := range policies {
-		m.TestSuites = append(m.TestSuites, TestsForSinglePolicy{
+	for p := range loader.Vaps {
+		m.VapTestSuites = append(m.VapTestSuites, TestsForSingleVapPolicy{
 			Policy: p,
-			Tests: []TestCase{
+			Tests: []VAPTestCase{
 				{
 					Object: NameWithGVK{
 						GVK: GVK{
@@ -151,31 +149,33 @@ func baseManifest(targetPath string, policies []string) []byte {
 			},
 		})
 	}
+
+	for p := range loader.Maps {
+		m.MapTestSuites = append(m.MapTestSuites, TestsForSingleMapPolicy{
+			Policy: p,
+			Tests: []MAPTestCase{
+				{
+					Object: NameWithGVK{
+						GVK: GVK{
+							Kind: "CHANGEME",
+						},
+						NamespacedName: NamespacedName{
+							Name: "mutated",
+						},
+					},
+					Expect: Mutate,
+					ExpectObject: NameWithGVK{
+						GVK: GVK{
+							Kind: "CHANGEME",
+						},
+						NamespacedName: NamespacedName{
+							Name: "mutated",
+						},
+					},
+				},
+			},
+		})
+	}
 	b, _ := yaml.Marshal(m)
 	return b
-}
-
-func getPolicyNames(targetFilePath string) ([]string, error) {
-	yamlFile, err := os.Open(targetFilePath)
-	if err != nil {
-		return nil, err
-	}
-	decoder := kyaml.NewYAMLToJSONDecoder(yamlFile)
-	var policyNames []string
-	for {
-		var vap v1.ValidatingAdmissionPolicy
-		if err := decoder.Decode(&vap); err != nil {
-			if errors.Is(err, io.EOF) {
-				break
-			}
-			slog.Warn("failed to decode", "error", err)
-			continue
-		}
-		if vap.Kind != "ValidatingAdmissionPolicy" {
-			slog.Warn("not a ValidatingAdmissionPolicy", "kind", vap.Kind)
-			continue
-		}
-		policyNames = append(policyNames, vap.Name)
-	}
-	return policyNames, nil
 }

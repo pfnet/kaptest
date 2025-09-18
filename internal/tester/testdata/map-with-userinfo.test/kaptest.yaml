@@ -1,0 +1,16 @@
+policies:
+- ../map-with-userinfo.yaml
+resources:
+- resources.yaml
+mapTestSuites:
+- policy: userinfo-policy
+  tests:
+  - object: 
+      kind: Deployment
+      name: base
+    expect: mutate
+    expectObject:
+      kind: Deployment
+      name: mutated
+    userInfo:
+      name: "system:serviceaccount:foo:default"

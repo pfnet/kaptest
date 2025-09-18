@@ -24,6 +24,7 @@ import (
 
 	"gopkg.in/yaml.v2"
 	v1 "k8s.io/api/admissionregistration/v1"
+	"k8s.io/api/admissionregistration/v1alpha1"
 	appsv1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/cli-runtime/pkg/printers"
@@ -66,6 +67,7 @@ func TestRunInit(t *testing.T) {
 			manifestPath := filepath.Join(dir, manifestFile)
 			f, _ := os.Create(manifestPath)
 			mustNil(t, y.PrintObj(sampleValidatingAdmissionPolicy(), f))
+			mustNil(t, y.PrintObj(sampleMutatingAdmissionPolicy(), f))
 			tt.setup(dir, f)
 
 			if err := RunInit(CmdConfig{Verbose: true}, manifestPath); err != nil {
@@ -113,6 +115,7 @@ func TestRunInit(t *testing.T) {
 		manifestPath := filepath.Join(dir, manifestFile)
 		f, _ := os.Create(manifestPath)
 		mustNil(t, y.PrintObj(sampleValidatingAdmissionPolicy(), f))
+		mustNil(t, y.PrintObj(sampleMutatingAdmissionPolicy(), f))
 		mustNil(t, os.Mkdir(filepath.Join(dir, testDir), 0o755))
 		mustNil(t, os.WriteFile(filepath.Join(dir, testDir, rootManifestName), []byte{}, 0o644)) //nolint:gosec
 
@@ -155,6 +158,51 @@ func sampleValidatingAdmissionPolicy() *v1.ValidatingAdmissionPolicy {
 	return vap
 }
 
+func sampleMutatingAdmissionPolicy() *v1alpha1.MutatingAdmissionPolicy {
+	mut := &v1alpha1.MutatingAdmissionPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "sample-policy",
+		},
+		Spec: v1alpha1.MutatingAdmissionPolicySpec{
+			FailurePolicy:      ptr.To(v1alpha1.Fail),
+			ReinvocationPolicy: v1alpha1.IfNeededReinvocationPolicy,
+			MatchConstraints: &v1alpha1.MatchResources{
+				NamespaceSelector: &metav1.LabelSelector{},
+				ObjectSelector:    &metav1.LabelSelector{},
+				MatchPolicy:       ptr.To(v1alpha1.Equivalent),
+				ResourceRules: []v1alpha1.NamedRuleWithOperations{
+					{
+						RuleWithOperations: v1.RuleWithOperations{
+							Rule: v1.Rule{
+								APIGroups:   []string{"apps"},
+								APIVersions: []string{"v1"},
+								Resources:   []string{"deployments"},
+							},
+							Operations: []v1.OperationType{"*"},
+						},
+					},
+				},
+			},
+			Mutations: []v1alpha1.Mutation{
+				{
+					PatchType: v1alpha1.PatchTypeApplyConfiguration,
+					ApplyConfiguration: &v1alpha1.ApplyConfiguration{
+						Expression: `
+							Object{
+								metadata: Object.metadata{
+									labels: {"environment": "test"}
+								}
+							}
+						`,
+					},
+				},
+			},
+		},
+	}
+	mut.GetObjectKind().SetGroupVersionKind(v1alpha1.SchemeGroupVersion.WithKind("MutatingAdmissionPolicy"))
+	return mut
+}
+
 func dummyDeployment() *appsv1.Deployment {
 	d := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
@@ -170,12 +218,12 @@ func dummyDeployment() *appsv1.Deployment {
 
 func wantRootManifest() []byte {
 	m := TestManifests{
-		ValidatingAdmissionPolicies: []string{"../policy.yaml"},
-		Resources:                   []string{"resources.yaml"},
-		TestSuites: []TestsForSinglePolicy{
+		Policies:  []string{"../policy.yaml"},
+		Resources: []string{"resources.yaml"},
+		VapTestSuites: []TestsForSingleVapPolicy{
 			{
 				Policy: "sample-policy",
-				Tests: []TestCase{
+				Tests: []VAPTestCase{
 					{
 						Object: NameWithGVK{
 							GVK:            GVK{Kind: "CHANGEME"},
@@ -189,6 +237,24 @@ func wantRootManifest() []byte {
 							NamespacedName: NamespacedName{Name: "bad"},
 						},
 						Expect: Deny,
+					},
+				},
+			},
+		},
+		MapTestSuites: []TestsForSingleMapPolicy{
+			{
+				Policy: "sample-policy",
+				Tests: []MAPTestCase{
+					{
+						Object: NameWithGVK{
+							GVK:            GVK{Kind: "CHANGEME"},
+							NamespacedName: NamespacedName{Name: "mutated"},
+						},
+						Expect: Mutate,
+						ExpectObject: NameWithGVK{
+							GVK:            GVK{Kind: "CHANGEME"},
+							NamespacedName: NamespacedName{Name: "mutated"},
+						},
 					},
 				},
 			},

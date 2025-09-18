@@ -40,3 +40,69 @@ spec:
   validations:
   - expression: object.spec.replicas <= variables.maxReplicas
     messageExpression: "'replicas must be less than ' + variables.maxReplicas"
+---
+apiVersion: admissionregistration.k8s.io/v1alpha1
+kind: MutatingAdmissionPolicy
+metadata:
+  name: policy-with-params
+spec:
+  matchConstraints:
+    matchPolicy: "Equivalent"
+    namespaceSelector: {}
+    objectSelector: {}
+    resourceRules:
+    - apiGroups: ["*"]
+      apiVersions: ["v1"]
+      operations: ["CREATE", "UPDATE"]
+      resources: ["deployments"]
+  failurePolicy: Fail
+  reinvocationPolicy: IfNeeded
+  paramKind:
+    apiVersion: v1
+    kind: ConfigMap
+  variables:
+  - name: maxReplicas
+    expression: int(params.data.maxReplicas)
+  matchConditions:
+  - name: replicas-increase
+    expression: "object.spec.replicas < variables.maxReplicas" 
+  mutations:
+  - patchType: ApplyConfiguration
+    applyConfiguration:
+      expression: >-
+        Object{
+          spec: Object.spec {
+            replicas: variables.maxReplicas
+          }
+        }
+---
+apiVersion: admissionregistration.k8s.io/v1alpha1
+kind: MutatingAdmissionPolicy
+metadata:
+  name: policy-with-namespace
+spec:
+  matchConstraints:
+    matchPolicy: "Equivalent"
+    namespaceSelector: {}
+    objectSelector: {}
+    resourceRules:
+    - apiGroups: ["*"]
+      apiVersions: ["v1"]
+      operations: ["CREATE", "UPDATE"]
+      resources: ["deployments"]
+  failurePolicy: Fail
+  reinvocationPolicy: IfNeeded
+  variables:
+  - name: labels
+    expression: "has(namespaceObject.metadata.labels) ? namespaceObject.metadata.labels : {}"
+  - name: maxReplicas
+    expression: "'max-replicas' in variables.labels ? int(variables.labels['max-replicas']) : 1"
+  mutations:
+  - patchType: ApplyConfiguration
+    applyConfiguration:
+      expression: >-
+        Object{
+          spec: Object.spec {
+            replicas: variables.maxReplicas
+          }
+        }

@@ -1,0 +1,34 @@
+apiVersion: admissionregistration.k8s.io/v1alpha1
+kind: MutatingAdmissionPolicy
+metadata:
+  name: deployment-replicas
+spec:
+  matchConstraints:
+    matchPolicy: "Equivalent"
+    namespaceSelector: {}
+    objectSelector: {}
+    resourceRules:
+    - apiGroups: ["*"]
+      apiVersions: ["v1"]
+      operations: ["CREATE", "UPDATE"]
+      resources: ["deployments"]
+  failurePolicy: Fail
+  reinvocationPolicy: IfNeeded
+  paramKind:
+    apiVersion: v1
+    kind: ConfigMap
+  variables:
+  - name: maxReplicas
+    expression: int(params.data.maxReplicas)
+  matchConditions:
+  - name: replicas-increase
+    expression: "object.spec.replicas < variables.maxReplicas" 
+  mutations:
+  - patchType: ApplyConfiguration
+    applyConfiguration:
+      expression: >-
+        Object{
+          spec: Object.spec {
+            replicas: variables.maxReplicas
+          }
+        }

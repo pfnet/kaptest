@@ -1,8 +1,8 @@
-validatingAdmissionPolicies:
+policies:
 - not-exist.yaml
 resources:
 - not-exist.yaml
-testSuites:
+vapTestSuites:
 - policy: dummy
   tests:
   - object:

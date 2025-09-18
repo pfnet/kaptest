@@ -1,4 +1,4 @@
-apiVersion: admissionregistration.k8s.io/v1beta1
+apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingAdmissionPolicy
 metadata:
   name: simple-policy
@@ -12,7 +12,7 @@ spec:
   validations:
   - expression: object.spec.replicas <= 5
 ---
-apiVersion: admissionregistration.k8s.io/v1beta1
+apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingAdmissionPolicy
 metadata:
   name: error-policy
@@ -25,3 +25,32 @@ spec:
       resources: ["deployments"]
   validations:
   - expression: object.spec.rrrrreplicas <= 5
+---
+apiVersion: admissionregistration.k8s.io/v1alpha1
+kind: MutatingAdmissionPolicy
+metadata:
+  name: simple-policy
+spec:
+  matchConstraints:
+    matchPolicy: "Equivalent"
+    namespaceSelector: {}
+    objectSelector: {}
+    resourceRules:
+    - apiGroups: ["*"]
+      apiVersions: ["v1"]
+      operations: ["CREATE", "UPDATE"]
+      resources: ["deployments"]
+  failurePolicy: Fail
+  reinvocationPolicy: IfNeeded
+  matchConditions:
+  - name: replicas-lt-10
+    expression: "object.spec.replicas < 10"
+  mutations:
+  - patchType: ApplyConfiguration
+    applyConfiguration:
+      expression: >-
+        Object{
+          spec: Object.spec {
+            replicas: 10
+          }
+        }

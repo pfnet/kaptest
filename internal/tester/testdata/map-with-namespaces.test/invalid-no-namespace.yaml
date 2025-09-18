@@ -1,12 +1,16 @@
 policies:
-- ../vap-with-namespaces.yaml
+- ../map-with-namespaces.yaml
 resources:
 - resources.yaml
-vapTestSuites:
+mapTestSuites:
 - policy: deployment-replicas
   tests:
   - object:
       kind: Deployment
       name: ok
       namespace: not-exist
-    expect: admit
+    expect: mutate
+    expectObject:
+      kind: Deployment
+      name: ok
+      namespace: not-exist

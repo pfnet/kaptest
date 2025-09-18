@@ -1,4 +1,4 @@
-apiVersion: admissionregistration.k8s.io/v1beta1
+apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingAdmissionPolicy
 metadata:
   name: deployment-replicas
@@ -12,7 +12,7 @@ spec:
   validations:
   - expression: object.spec.replicas <= 5
 ---
-apiVersion: admissionregistration.k8s.io/v1beta1
+apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingAdmissionPolicy
 metadata:
   name: deployment-check-immutable
@@ -26,7 +26,7 @@ spec:
   validations:
   - expression: oldObject.metadata.?labels['immutable'].orValue("") != "true"
 ---
-apiVersion: admissionregistration.k8s.io/v1beta1
+apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingAdmissionPolicy
 metadata:
   name: deployment-check-deletable
@@ -40,7 +40,7 @@ spec:
   validations:
   - expression: oldObject.metadata.?labels['deletable'].orValue("") == "true"
 ---
-apiVersion: admissionregistration.k8s.io/v1beta1
+apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingAdmissionPolicy
 metadata:
   name: deployment-replicas-with-matchCondition
