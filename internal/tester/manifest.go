@@ -75,8 +75,7 @@ type VAPTestCase struct {
 	Param     NamespacedName       `yaml:"param,omitempty"`
 	Expect    PolicyDecisionExpect `yaml:"expect,omitempty"`
 	UserInfo  UserInfo             `yaml:"userInfo,omitempty"`
-	// TODO: Support message test
-	// Message   string                              `yaml:"message"`
+	DeniedMsg string               `yaml:"deniedMessage"`
 }
 
 var _ TestCase = &VAPTestCase{}
