@@ -2,12 +2,10 @@ policies:
 - ../vap-custom-resources.yaml
 resources:
 - resources.yaml
-schemaLocations:
-- "https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json"
 vapTestSuites:
 - policy: httpproxy-auth
   tests:
   - object:
       kind: HTTPProxy
-      name: not-exist
+      name: ok
     expect: admit

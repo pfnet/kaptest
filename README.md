@@ -86,6 +86,9 @@ policies:
 resources:
 - <path/to/resource.yaml>
 - <path/to/resource.yaml>
+schemaLocations: # Optional: For Custom Resources
+- <url/to/crd/schema.json>
+- <path/to/crd/schema.json>
 vapTestSuites:
 - policy: <name> # ValidatingAdmissionPolicy's name
   tests:
@@ -152,6 +155,17 @@ kaptest run <path/to/test_manifest.yaml> ...
 ```
 
 You can run test cases of multiple YAML files at once and display the test results together.
+
+#### Resource Manifest Validation
+
+kaptest incorporates [kubeconform](https://github.com/yannh/kubeconform) based manifest validation.
+All resources including policies need to follow schema.
+
+For custom resources, users need to define `schemaLocations` in a test policy to get CRD schema.
+The schema specification follows kubeconform's one and users can utlize schemas for it.
+The example is described in [internal/tester/testdata/vap-custom-resources.test/kaptest.yaml](./internal/tester/testdata/vap-custom-resources.test/kaptest.yaml).
+
+`kaptest run <test_manifest.yaml> --validate-resource-manifests=false` disables the validation.
 
 ### Operation Type
 

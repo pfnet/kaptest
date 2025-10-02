@@ -16,14 +16,19 @@ limitations under the License.
 
 package tester
 
-import "testing"
+import (
+	"os"
+	"path/filepath"
+	"testing"
+)
 
 func TestRun(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
-		name    string
-		args    []string
-		wantErr error
+		name              string
+		args              []string
+		wantErr           error
+		validateManifests bool
 	}{
 		{
 			name: "ok",
@@ -38,42 +43,53 @@ func TestRun(t *testing.T) {
 				"./testdata/map-with-namespaces.test/kaptest.yaml",
 				"./testdata/map-with-userinfo.test/kaptest.yaml",
 			},
-			wantErr: nil,
+			wantErr:           nil,
+			validateManifests: true,
 		},
 		{
-			name:    "err: file not found",
-			args:    []string{"./testdata/not-found.yaml"},
-			wantErr: ErrTestFail,
+			name:              "err: file not found",
+			args:              []string{"./testdata/not-found.yaml"},
+			wantErr:           ErrTestFail,
+			validateManifests: true,
 		},
 		{
-			name:    "err: unmarshal error",
-			args:    []string{"./testdata/invalid-format.yaml"},
-			wantErr: ErrTestFail,
+			name:              "err: unmarshal error",
+			args:              []string{"./testdata/invalid-format.yaml"},
+			wantErr:           ErrTestFail,
+			validateManifests: true,
 		},
 		{
-			name:    "err: invalid config",
-			args:    []string{"./testdata/invalid-config.yaml"},
-			wantErr: ErrTestFail,
+			name:              "err: invalid config",
+			args:              []string{"./testdata/invalid-config.yaml"},
+			wantErr:           ErrTestFail,
+			validateManifests: true,
 		},
 		{
-			name:    "err: policy file not found",
-			args:    []string{"./testdata/invalid-policy-file-not-found.yaml"},
-			wantErr: ErrTestFail,
+			name:              "err: policy file not found",
+			args:              []string{"./testdata/invalid-policy-file-not-found.yaml"},
+			wantErr:           ErrTestFail,
+			validateManifests: true,
 		},
 		{
-			name:    "err: policy not exist",
-			args:    []string{"./testdata/vap-standard-resources.test/invalid-no-policy.yaml"},
-			wantErr: ErrTestFail,
+			name:              "err: policy not exist",
+			args:              []string{"./testdata/vap-standard-resources.test/invalid-no-policy.yaml"},
+			wantErr:           ErrTestFail,
+			validateManifests: true,
 		},
 		{
-			name:    "err: object not exist",
-			args:    []string{"./testdata/vap-standard-resources.test/invalid-no-obj.yaml"},
-			wantErr: ErrTestFail,
+			name: "err: object not exist",
+			args: []string{
+				"./testdata/vap-standard-resources.test/invalid-no-obj.yaml",
+				"./testdata/map-standard-resources.test/invalid-no-expect.yaml",
+			},
+			wantErr:           ErrTestFail,
+			validateManifests: true,
 		},
 		{
-			name:    "err: object not exist (custom resource)",
-			args:    []string{"./testdata/vap-custom-resources.test/invalid-no-obj.yaml"},
-			wantErr: ErrTestFail,
+			name:              "err: object not exist (custom resource)",
+			args:              []string{"./testdata/vap-custom-resources.test/invalid-no-obj.yaml"},
+			wantErr:           ErrTestFail,
+			validateManifests: true,
 		},
 		{
 			name: "err: params not exist",
@@ -81,7 +97,8 @@ func TestRun(t *testing.T) {
 				"./testdata/vap-with-params.test/invalid-no-params.yaml",
 				"./testdata/map-with-params.test/invalid-no-params.yaml",
 			},
-			wantErr: ErrTestFail,
+			wantErr:           ErrTestFail,
+			validateManifests: true,
 		},
 		{
 			name: "err: namespace not exist",
@@ -89,11 +106,50 @@ func TestRun(t *testing.T) {
 				"./testdata/vap-with-namespaces.test/invalid-no-namespace.yaml",
 				"./testdata/map-with-namespaces.test/invalid-no-namespace.yaml",
 			},
-			wantErr: ErrTestFail,
+			wantErr:           ErrTestFail,
+			validateManifests: true,
+		},
+		{
+			name: "err: no schemaLocation for CRD",
+			args: []string{
+				"./testdata/vap-custom-resources.test/no-schema-locations.yaml",
+			},
+			wantErr:           ErrTestFail,
+			validateManifests: true,
+		},
+		{
+			name: "err: invalid resource manifest",
+			args: []string{
+				"./testdata/vap-standard-resources.test/invalid-resources-test.yaml",
+			},
+			wantErr:           ErrTestFail,
+			validateManifests: true,
+		},
+		{
+			name: "ok: invalid resource manifest or no schemas, but validation disabled",
+			args: []string{
+				"./testdata/vap-standard-resources.test/invalid-resources-test.yaml",
+				"./testdata/vap-custom-resources.test/no-schema-locations.yaml",
+			},
+			wantErr:           nil,
+			validateManifests: false,
 		},
 	}
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		t.Fatalf("failed to get homedir: %v", err)
+	}
+	schemaCache := filepath.Join(homeDir, ".cache/kaptest/schema-test")
+	defer os.RemoveAll(schemaCache)
+
 	for _, tt := range tests {
-		cfg := CmdConfig{Verbose: true}
+		cfg := TesterCmdConfig{
+			CmdConfig: CmdConfig{
+				Verbose: true,
+			},
+			ValidateResourceManifest: tt.validateManifests,
+			SchemaCache:              schemaCache,
+		}
 		t.Run(tt.name, func(t *testing.T) {
 			got := Run(cfg, tt.args)
 			if got != tt.wantErr {

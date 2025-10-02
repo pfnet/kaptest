@@ -1,0 +1,11 @@
+policies:
+- ../vap-standard-resources.yaml
+resources:
+- invalid-resources.yaml
+vapTestSuites:
+- policy: deployment-replicas
+  tests:
+  - object:
+      kind: Deployment
+      name: ok
+    expect: admit

@@ -27,10 +27,11 @@ import (
 
 // TestManifests is a struct to represent the whole test manifest file.
 type TestManifests struct {
-	Policies      []string                  `yaml:"policies,omitempty"`
-	Resources     []string                  `yaml:"resources,omitempty"`
-	VapTestSuites []TestsForSingleVapPolicy `yaml:"vapTestSuites,omitempty"`
-	MapTestSuites []TestsForSingleMapPolicy `yaml:"mapTestSuites,omitempty"`
+	Policies        []string                  `yaml:"policies,omitempty"`
+	Resources       []string                  `yaml:"resources,omitempty"`
+	SchemaLocations []string                  `yaml:"schemaLocations,omitempty"` // used for resource manifest validation
+	VapTestSuites   []TestsForSingleVapPolicy `yaml:"vapTestSuites,omitempty"`
+	MapTestSuites   []TestsForSingleMapPolicy `yaml:"mapTestSuites,omitempty"`
 }
 
 func (t TestManifests) IsValid() (bool, string) {

@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 
+	"github.com/pfnet/kaptest/internal/util"
 	"github.com/spf13/cobra"
 )
 
@@ -18,6 +19,7 @@ func newVersionCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			fmt.Printf("Version: %s\n", version)
 			fmt.Printf("Commit: %s\n", commit)
+			fmt.Printf("Supported Kubernetes Version: %s\n", util.GetSupportedKubernetesVersion())
 			return nil
 		},
 	}

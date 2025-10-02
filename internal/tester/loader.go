@@ -24,6 +24,9 @@ import (
 	"log/slog"
 	"os"
 
+	"github.com/yannh/kubeconform/pkg/resource"
+	"github.com/yannh/kubeconform/pkg/validator"
+	"gopkg.in/yaml.v2"
 	v1 "k8s.io/api/admissionregistration/v1"
 	"k8s.io/api/admissionregistration/v1alpha1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -36,13 +39,15 @@ type ResourceLoader struct {
 	Vaps      map[string]*v1.ValidatingAdmissionPolicy
 	Maps      map[string]*v1alpha1.MutatingAdmissionPolicy
 	Resources map[NameWithGVK]*unstructured.Unstructured
+	validator validator.Validator
 }
 
-func NewResourceLoader() *ResourceLoader {
+func NewResourceLoader(validator validator.Validator) *ResourceLoader {
 	return &ResourceLoader{
 		Vaps:      map[string]*v1.ValidatingAdmissionPolicy{},
 		Maps:      map[string]*v1alpha1.MutatingAdmissionPolicy{},
 		Resources: map[NameWithGVK]*unstructured.Unstructured{},
+		validator: validator,
 	}
 }
 
@@ -73,6 +78,14 @@ func (r *ResourceLoader) LoadPolicies(paths []string) {
 			if err != nil {
 				slog.Warn("failed to read yaml file", "error", err)
 				continue
+			}
+
+			if r.validator != nil {
+				res := r.validator.ValidateResource(resource.Resource{Bytes: b})
+				if res.Err != nil || res.Status != validator.Valid {
+					slog.Error("Invalid policy exists")
+					continue
+				}
 			}
 
 			obj, gvk, err := decoder.Decode(b, nil, nil)
@@ -115,6 +128,7 @@ func (r *ResourceLoader) LoadResources(paths []string) {
 			slog.Error("read yaml file", "error", err)
 			continue
 		}
+
 		decoder := kyaml.NewYAMLToJSONDecoder(yamlFile)
 		for {
 			var obj map[string]any
@@ -126,6 +140,22 @@ func (r *ResourceLoader) LoadResources(paths []string) {
 				continue
 			}
 			unstructuredObj := &unstructured.Unstructured{Object: obj}
+
+			// if resource manifest validation is enabled, check whether the resource manifest follows a schema.
+			if r.validator != nil {
+				// TODO: avoid re-marshal
+				objYamlBytes, err := yaml.Marshal(obj)
+				if err != nil {
+					slog.Warn("failed to marshal object into yaml", "error", err)
+					continue
+				}
+				res := r.validator.ValidateResource(resource.Resource{Bytes: objYamlBytes})
+				if res.Err != nil || res.Status != validator.Valid {
+					slog.Error("A resource is invalid", "obj", unstructuredObj.GetName(), "status", res.Status, "error", res.Err)
+					continue
+				}
+			}
+
 			ngvk := NewNameWithGVKFromObj(unstructuredObj)
 			r.Resources[ngvk] = unstructuredObj
 		}
