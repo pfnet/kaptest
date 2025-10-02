@@ -43,6 +43,7 @@ type ValidatorInterface interface {
 
 type Validator struct {
 	policy    *v1.ValidatingAdmissionPolicy
+	binding   *v1.ValidatingAdmissionPolicyBinding
 	validator validating.Validator
 	matcher   matchconditions.Matcher
 }
@@ -72,6 +73,13 @@ func (p ValidationParams) Operation() admission.Operation {
 func NewValidator(policy *v1.ValidatingAdmissionPolicy) *Validator {
 	v, m := compilePolicy(policy)
 	return &Validator{validator: v, policy: policy, matcher: m}
+}
+
+// NewValidatorWithBinding compiles the provided ValidatingAdmissionPolicy and generates Validator with provided binding.
+func NewValidatorWithBinding(policy *v1.ValidatingAdmissionPolicy, binding *v1.ValidatingAdmissionPolicyBinding) *Validator {
+	v := NewValidator(policy)
+	v.binding = binding
+	return v
 }
 
 // Original: https://github.com/kubernetes/apiserver/blob/v0.32.1/pkg/admission/plugin/policy/validating/plugin.go

@@ -38,6 +38,7 @@ import (
 
 type ResourceLoader struct {
 	Vaps        map[string]*v1.ValidatingAdmissionPolicy
+	VapBindings map[string]*v1.ValidatingAdmissionPolicyBinding
 	Maps        map[string]*v1alpha1.MutatingAdmissionPolicy
 	MapBindings map[string]*v1alpha1.MutatingAdmissionPolicyBinding
 	Resources   map[NameWithGVK]*unstructured.Unstructured
@@ -47,6 +48,7 @@ type ResourceLoader struct {
 func NewResourceLoader(validator validator.Validator) *ResourceLoader {
 	return &ResourceLoader{
 		Vaps:        map[string]*v1.ValidatingAdmissionPolicy{},
+		VapBindings: map[string]*v1.ValidatingAdmissionPolicyBinding{},
 		Maps:        map[string]*v1alpha1.MutatingAdmissionPolicy{},
 		MapBindings: map[string]*v1alpha1.MutatingAdmissionPolicyBinding{},
 		Resources:   map[NameWithGVK]*unstructured.Unstructured{},
@@ -104,6 +106,13 @@ func (r *ResourceLoader) LoadPolicies(paths []string) {
 				}
 				vap := obj.(*v1.ValidatingAdmissionPolicy)
 				r.Vaps[vap.Name] = vap
+			case "ValidatingAdmissionPolicyBinding":
+				if gvk.Version != "v1" {
+					slog.Warn("only v1 ValidatingAdmissionPolicyBinding is supported", "version", gvk.Version)
+					continue
+				}
+				vb := obj.(*v1.ValidatingAdmissionPolicyBinding)
+				r.VapBindings[vb.Name] = vb
 			case "MutatingAdmissionPolicy":
 				if gvk.Version != "v1alpha1" {
 					slog.Warn("only v1alpha1 MutatingAdmissionPolicy is supported", "version", gvk.Version)

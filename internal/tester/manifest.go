@@ -49,8 +49,9 @@ func (t TestManifests) IsValid() (bool, string) {
 
 // TestsForSingleVapPolicy is a struct to aggregate multiple test cases for a single policy.
 type TestsForSingleVapPolicy struct {
-	Policy string        `yaml:"policy"`
-	Tests  []VAPTestCase `yaml:"tests"`
+	Policy  string        `yaml:"policy"`
+	Binding string        `yaml:"binding,omitempty"`
+	Tests   []VAPTestCase `yaml:"tests"`
 }
 
 type PolicyDecisionExpect string
