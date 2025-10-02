@@ -24,6 +24,7 @@ import (
 	"path/filepath"
 
 	"github.com/pfnet/kaptest"
+	"github.com/pfnet/kaptest/internal/util"
 	"github.com/yannh/kubeconform/pkg/validator"
 	"gopkg.in/yaml.v2"
 	v1 "k8s.io/api/admissionregistration/v1"
@@ -128,7 +129,7 @@ func runEach(cfg TesterCmdConfig, manifestPath string) testResultSummary {
 			SkipTLS:              false,
 			SkipKinds:            map[string]struct{}{},
 			RejectKinds:          map[string]struct{}{},
-			KubernetesVersion:    "1.32.1", // ensure matching a version with validation.go and mutation.go
+			KubernetesVersion:    util.GetSupportedKubernetesVersion(),
 			Strict:               true,
 			IgnoreMissingSchemas: false,
 		}
