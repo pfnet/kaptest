@@ -29,6 +29,7 @@ import (
 	"gopkg.in/yaml.v2"
 	v1 "k8s.io/api/admissionregistration/v1"
 	"k8s.io/api/admissionregistration/v1alpha1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
@@ -107,6 +108,8 @@ func (r *ResourceLoader) LoadPolicies(paths []string) {
 					continue
 				}
 				m := obj.(*v1alpha1.MutatingAdmissionPolicy)
+				// Ensure nil labelSelectors to be matching everything
+				defaultingMAPPolicy(m)
 				r.Maps[m.Name] = m
 			default:
 				slog.Warn("unexpected manifest", "kind", gvk.Kind)
@@ -176,4 +179,17 @@ func (r *ResourceLoader) GetResource(ngvk NameWithGVK) (*unstructured.Unstructur
 		}
 	}
 	return obj, nil
+}
+
+func defaultingMAPPolicy(p *v1alpha1.MutatingAdmissionPolicy) {
+	// MAP's matcher recognizes nil as labels.Nothing
+	// To match everything as expected, it needs to set empty LabelSeletor
+	// Ref: https://github.com/kubernetes/apiserver/blob/v0.32.1/pkg/admission/plugin/policy/generic/policy_matcher.go#L96
+
+	if p.Spec.MatchConstraints.NamespaceSelector == nil {
+		p.Spec.MatchConstraints.NamespaceSelector = &metav1.LabelSelector{}
+	}
+	if p.Spec.MatchConstraints.ObjectSelector == nil {
+		p.Spec.MatchConstraints.ObjectSelector = &metav1.LabelSelector{}
+	}
 }

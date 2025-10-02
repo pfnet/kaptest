@@ -31,8 +31,6 @@ metadata:
 spec:
   matchConstraints:
     matchPolicy: "Equivalent"
-    namespaceSelector: {}
-    objectSelector: {}
     resourceRules:
     - apiGroups: ["apps"]
       apiVersions: ["v1"]
