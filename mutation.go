@@ -54,6 +54,7 @@ type MutatorInterface interface {
 
 type Mutator struct {
 	policy    *v1alpha1.MutatingAdmissionPolicy
+	binding   *v1alpha1.MutatingAdmissionPolicyBinding
 	evaluator mutating.PolicyEvaluator
 }
 
@@ -105,6 +106,15 @@ func NewMutator(policy *v1alpha1.MutatingAdmissionPolicy) (*Mutator, error) {
 		policy:    policy,
 		evaluator: evaluator,
 	}, nil
+}
+
+func NewMutatorWithBinding(policy *v1alpha1.MutatingAdmissionPolicy, binding *v1alpha1.MutatingAdmissionPolicyBinding) (*Mutator, error) {
+	m, err := NewMutator(policy)
+	if err != nil {
+		return nil, err
+	}
+	m.binding = binding
+	return m, nil
 }
 
 type mutatorContext struct {
@@ -280,21 +290,25 @@ func (m *Mutator) dispatchImpl(p MutationParams, dispatcherFactory func(mCtx *mu
 		return nil, fmt.Errorf("failed to initialize mutatorContext: %w", err)
 	}
 
-	binding := &v1alpha1.MutatingAdmissionPolicyBinding{
-		Spec: v1alpha1.MutatingAdmissionPolicyBindingSpec{
-			ParamRef: &v1alpha1.ParamRef{},
-			MatchResources: &v1alpha1.MatchResources{
-				MatchPolicy:       ptr.To(v1alpha1.Equivalent),
-				ObjectSelector:    &metav1.LabelSelector{},
-				NamespaceSelector: &metav1.LabelSelector{},
+	bindingGenerated := false
+	if m.binding == nil {
+		m.binding = &v1alpha1.MutatingAdmissionPolicyBinding{
+			Spec: v1alpha1.MutatingAdmissionPolicyBindingSpec{
+				ParamRef: &v1alpha1.ParamRef{},
+				MatchResources: &v1alpha1.MatchResources{
+					MatchPolicy:       ptr.To(v1alpha1.Equivalent),
+					ObjectSelector:    &metav1.LabelSelector{},
+					NamespaceSelector: &metav1.LabelSelector{},
+				},
 			},
-		},
+		}
+		bindingGenerated = true
 	}
 
 	hook := mutating.PolicyHook{
 		Policy:    m.policy,
 		Evaluator: m.evaluator,
-		Bindings:  []*mutating.PolicyBinding{binding},
+		Bindings:  []*mutating.PolicyBinding{m.binding},
 	}
 
 	if m.policy.Spec.ParamKind != nil {
@@ -322,8 +336,10 @@ func (m *Mutator) dispatchImpl(p MutationParams, dispatcherFactory func(mCtx *mu
 		if err != nil {
 			return nil, fmt.Errorf("failed to access paramObj: %w", err)
 		}
-		binding.Spec.ParamRef.Name = metaAcc.GetName()
-		binding.Spec.ParamRef.Namespace = metaAcc.GetNamespace()
+		if bindingGenerated {
+			m.binding.Spec.ParamRef.Name = metaAcc.GetName()
+			m.binding.Spec.ParamRef.Namespace = metaAcc.GetNamespace()
+		}
 	}
 
 	// Start informers

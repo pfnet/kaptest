@@ -37,18 +37,22 @@ import (
 )
 
 type ResourceLoader struct {
-	Vaps      map[string]*v1.ValidatingAdmissionPolicy
-	Maps      map[string]*v1alpha1.MutatingAdmissionPolicy
-	Resources map[NameWithGVK]*unstructured.Unstructured
-	validator validator.Validator
+	Vaps        map[string]*v1.ValidatingAdmissionPolicy
+	VapBindings map[string]*v1.ValidatingAdmissionPolicyBinding
+	Maps        map[string]*v1alpha1.MutatingAdmissionPolicy
+	MapBindings map[string]*v1alpha1.MutatingAdmissionPolicyBinding
+	Resources   map[NameWithGVK]*unstructured.Unstructured
+	validator   validator.Validator
 }
 
 func NewResourceLoader(validator validator.Validator) *ResourceLoader {
 	return &ResourceLoader{
-		Vaps:      map[string]*v1.ValidatingAdmissionPolicy{},
-		Maps:      map[string]*v1alpha1.MutatingAdmissionPolicy{},
-		Resources: map[NameWithGVK]*unstructured.Unstructured{},
-		validator: validator,
+		Vaps:        map[string]*v1.ValidatingAdmissionPolicy{},
+		VapBindings: map[string]*v1.ValidatingAdmissionPolicyBinding{},
+		Maps:        map[string]*v1alpha1.MutatingAdmissionPolicy{},
+		MapBindings: map[string]*v1alpha1.MutatingAdmissionPolicyBinding{},
+		Resources:   map[NameWithGVK]*unstructured.Unstructured{},
+		validator:   validator,
 	}
 }
 
@@ -102,6 +106,13 @@ func (r *ResourceLoader) LoadPolicies(paths []string) {
 				}
 				vap := obj.(*v1.ValidatingAdmissionPolicy)
 				r.Vaps[vap.Name] = vap
+			case "ValidatingAdmissionPolicyBinding":
+				if gvk.Version != "v1" {
+					slog.Warn("only v1 ValidatingAdmissionPolicyBinding is supported", "version", gvk.Version)
+					continue
+				}
+				vb := obj.(*v1.ValidatingAdmissionPolicyBinding)
+				r.VapBindings[vb.Name] = vb
 			case "MutatingAdmissionPolicy":
 				if gvk.Version != "v1alpha1" {
 					slog.Warn("only v1alpha1 MutatingAdmissionPolicy is supported", "version", gvk.Version)
@@ -111,6 +122,13 @@ func (r *ResourceLoader) LoadPolicies(paths []string) {
 				// Ensure nil labelSelectors to be matching everything
 				defaultingMAPPolicy(m)
 				r.Maps[m.Name] = m
+			case "MutatingAdmissionPolicyBinding":
+				if gvk.Version != "v1alpha1" {
+					slog.Warn("only v1alpha1 MutatingAdmissionPolicyBinding is supported", "version", gvk.Version)
+					continue
+				}
+				mb := obj.(*v1alpha1.MutatingAdmissionPolicyBinding)
+				r.MapBindings[mb.Name] = mb
 			default:
 				slog.Warn("unexpected manifest", "kind", gvk.Kind)
 			}

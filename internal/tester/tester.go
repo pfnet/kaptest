@@ -155,25 +155,35 @@ func runEach(cfg TesterCmdConfig, manifestPath string) testResultSummary {
 	// Run test cases for VAP one by one
 	for _, tt := range manifests.VapTestSuites {
 		// Create Validator
-		vap, ok := loader.Vaps[tt.Policy]
+		policy, ok := loader.Vaps[tt.Policy]
 		if !ok {
 			results = append(results, newPolicyNotFoundResult(tt.Policy))
 			continue
 		}
-		validator := kaptest.NewValidator(vap)
+		var validator *kaptest.Validator
+		if tt.Binding != "" {
+			binding, ok := loader.MapBindings[tt.Binding]
+			if !ok {
+				results = append(results, newBindingNotFoundResult(tt.Binding))
+				continue
+			}
+			validator = kaptest.NewValidatorWithBinding(policy, binding)
+		} else {
+			validator = kaptest.NewValidator(policy)
+		}
 
 		for _, tc := range tt.Tests {
 			slog.Debug("SETUP: ", "policy", tt.Policy, "expect", tc.Expect, "object", tc.Object.String(), "oldObject", tc.OldObject.String(), "param", tc.Param.String())
 
 			// Setup params for validation
-			given, errs := newValidationParams(vap, tc, loader)
+			given, errs := newValidationParams(policy, tc, loader)
 			if len(errs) > 0 {
 				results = append(results, newSetupErrorResult(tt.Policy, tc, errs))
 				continue
 			}
 
 			// Run EvalMatchConditions
-			if vap.Spec.MatchConditions != nil {
+			if policy.Spec.MatchConditions != nil {
 				matchResult := validator.EvalMatchCondition(given)
 				if matchResult.Error != nil {
 					results = append(results, newPolicyEvalErrorResult(tt.Policy, tc, []error{matchResult.Error}))
@@ -200,7 +210,18 @@ func runEach(cfg TesterCmdConfig, manifestPath string) testResultSummary {
 			continue
 		}
 
-		mutator, err := kaptest.NewMutator(policy)
+		var mutator *kaptest.Mutator
+		var err error
+		if tt.Binding != "" {
+			binding, ok := loader.MapBindings[tt.Binding]
+			if !ok {
+				results = append(results, newBindingNotFoundResult(tt.Binding))
+				continue
+			}
+			mutator, err = kaptest.NewMutatorWithBinding(policy, binding)
+		} else {
+			mutator, err = kaptest.NewMutator(policy)
+		}
 		if err != nil {
 			panic(err)
 		}

@@ -10,6 +10,7 @@ mapTestSuites:
       name: small
       namespace: foo
     param:
+      namespace: hoge
       name: config1
     expect: mutate
     expectObject:
@@ -21,5 +22,21 @@ mapTestSuites:
       name: ok
       namespace: foo
     param:
+      namespace: hoge
       name: config1
     expect: skip
+- policy: deployment-replicas
+  binding: deployment-replicas-binding
+  tests:
+  - object:
+      kind: Deployment
+      name: small
+      namespace: foo
+    param:
+      namespace: foo
+      name: config1
+    expect: mutate
+    expectObject:
+      kind: Deployment
+      name: ok-large
+      namespace: foo

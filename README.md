@@ -91,6 +91,7 @@ schemaLocations: # Optional: For Custom Resources
 - <path/to/crd/schema.json>
 vapTestSuites:
 - policy: <name> # ValidatingAdmissionPolicy's name
+  binding: <name> # Optional: ValidatingAdmissionPolicyBinding's name
   tests:
   - object:
       group: <group> # Optional
@@ -114,6 +115,7 @@ vapTestSuites:
     expect: <allow|deny|skip|error>
 mapTestSuites:
 - policy: <name> # MutatingAdmissionPolicy's name
+  binding: <name> # Optional: MutatingAdmissionPolicyBinding's name
   tests:
   - object:
       group: <group> # Optional
