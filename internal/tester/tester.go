@@ -35,6 +35,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/kubernetes/pkg/apis/admissionregistration"
+	"k8s.io/kubernetes/pkg/apis/admissionregistration/validation"
 )
 
 var ErrTestFail = errors.New("test failed")
@@ -160,6 +162,13 @@ func runEach(cfg TesterCmdConfig, manifestPath string) testResultSummary {
 			results = append(results, newPolicyNotFoundResult(tt.Policy))
 			continue
 		}
+
+		errs := validation.ValidateValidatingAdmissionPolicy(convertVAPToInternalVAP(vap))
+		if len(errs) > 0 && len(tt.Tests) > 0 {
+			results = append(results, newSetupErrorResult(tt.Policy, tt.Tests[0], errs.ToAggregate().Errors()))
+			continue
+		}
+
 		validator := kaptest.NewValidator(vap)
 
 		for _, tc := range tt.Tests {
@@ -197,6 +206,12 @@ func runEach(cfg TesterCmdConfig, manifestPath string) testResultSummary {
 		policy, ok := loader.Maps[tt.Policy]
 		if !ok {
 			results = append(results, newPolicyNotFoundResult(tt.Policy))
+			continue
+		}
+
+		errs := validation.ValidateMutatingAdmissionPolicy(convertMAPToInternalMAP(policy))
+		if len(errs) > 0 && len(tt.Tests) > 0 {
+			results = append(results, newSetupErrorResult(tt.Policy, tt.Tests[0], errs.ToAggregate().Errors()))
 			continue
 		}
 
@@ -466,4 +481,30 @@ func convertToTyped(obj *unstructured.Unstructured) (runtime.Object, error) {
 	}
 
 	return newTypedObject, nil
+}
+
+func convertVAPToInternalVAP(p *v1.ValidatingAdmissionPolicy) *admissionregistration.ValidatingAdmissionPolicy {
+	pBytes, err := yaml.Marshal(p)
+	if err != nil {
+		panic(err)
+	}
+	res := admissionregistration.ValidatingAdmissionPolicy{}
+	err = yaml.Unmarshal(pBytes, &res)
+	if err != nil {
+		panic(err)
+	}
+	return &res
+}
+
+func convertMAPToInternalMAP(p *v1alpha1.MutatingAdmissionPolicy) *admissionregistration.MutatingAdmissionPolicy {
+	pBytes, err := yaml.Marshal(p)
+	if err != nil {
+		panic(err)
+	}
+	res := admissionregistration.MutatingAdmissionPolicy{}
+	err = yaml.Unmarshal(pBytes, &res)
+	if err != nil {
+		panic(err)
+	}
+	return &res
 }

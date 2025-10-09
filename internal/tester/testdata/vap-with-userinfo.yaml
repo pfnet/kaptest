@@ -5,6 +5,9 @@ metadata:
 spec:
   failurePolicy: Fail
   matchConstraints:
+    matchPolicy: "Equivalent"
+    namespaceSelector: {}
+    objectSelector: {}
     resourceRules:
     - apiGroups: [""]
       apiVersions: ["v1"]

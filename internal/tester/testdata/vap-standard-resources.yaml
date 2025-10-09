@@ -3,7 +3,11 @@ kind: ValidatingAdmissionPolicy
 metadata:
   name: deployment-replicas
 spec:
+  failurePolicy: Fail
   matchConstraints:
+    matchPolicy: "Equivalent"
+    namespaceSelector: {}
+    objectSelector: {}
     resourceRules:
     - apiGroups: [""]
       apiVersions: ["v1"]
@@ -17,7 +21,11 @@ kind: ValidatingAdmissionPolicy
 metadata:
   name: deployment-check-immutable
 spec:
+  failurePolicy: Fail
   matchConstraints:
+    matchPolicy: "Equivalent"
+    namespaceSelector: {}
+    objectSelector: {}
     resourceRules:
     - apiGroups: [""]
       apiVersions: ["v1"]
@@ -31,7 +39,11 @@ kind: ValidatingAdmissionPolicy
 metadata:
   name: deployment-check-deletable
 spec:
+  failurePolicy: Fail
   matchConstraints:
+    matchPolicy: "Equivalent"
+    namespaceSelector: {}
+    objectSelector: {}
     resourceRules:
     - apiGroups: [""]
       apiVersions: ["v1"]
@@ -43,10 +55,13 @@ spec:
 apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingAdmissionPolicy
 metadata:
-  name: deployment-replicas-with-matchCondition
+  name: deployment-replicas-with-matchcondition
 spec:
   failurePolicy: Fail
   matchConstraints:
+    matchPolicy: "Equivalent"
+    namespaceSelector: {}
+    objectSelector: {}
     resourceRules:
     - apiGroups: [""]
       apiVersions: ["v1"]

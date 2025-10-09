@@ -4,11 +4,15 @@ metadata:
   name: httpproxy-auth
 spec:
   matchConstraints:
+    matchPolicy: "Equivalent"
+    namespaceSelector: {}
+    objectSelector: {}
     resourceRules:
     - apiGroups:   ["projectcontour.io"]
       apiVersions: ["*"]
       operations:  ["CREATE", "UPDATE"]
       resources:   ["httpproxies"]
+  failurePolicy: Fail
   variables:
   - name: annotations
     expression: "has(object.metadata.annotations) ? object.metadata.annotations : {}"
