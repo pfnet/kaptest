@@ -17,4 +17,4 @@ spec:
     expression: "'max-replicas' in variables.annotations ? int(variables.annotations['max-replicas']) : 0"
   validations:
   - expression: object.spec.replicas <= variables.maxReplicas
-    messageExpression: "'replicas must be equal or less than ' + variables.maxReplicas"
+    messageExpression: "'replicas must be equal or less than ' + string(variables.maxReplicas)"

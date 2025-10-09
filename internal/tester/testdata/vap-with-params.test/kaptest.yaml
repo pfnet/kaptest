@@ -17,3 +17,4 @@ vapTestSuites:
     param:
       name: config1
     expect: deny
+    deniedMessage: "replicas must be equal or less than 5"

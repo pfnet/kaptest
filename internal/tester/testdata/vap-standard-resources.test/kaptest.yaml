@@ -28,6 +28,7 @@ vapTestSuites:
       kind: Deployment
       name: mutable
     expect: deny
+    deniedMessage: "specified replicas 6 exceeds limit 5"
 - policy: deployment-check-immutable
   tests:
   - object:
