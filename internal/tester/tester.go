@@ -209,6 +209,8 @@ func runEach(cfg TesterCmdConfig, manifestPath string) testResultSummary {
 			continue
 		}
 
+		// workaround for the issue: https://github.com/kubernetes/kubernetes/issues/134808
+		validation.ValidateMutatingAdmissionPolicy(convertMAPToInternalMAP(policy))
 		errs := validation.ValidateMutatingAdmissionPolicy(convertMAPToInternalMAP(policy))
 		if len(errs) > 0 && len(tt.Tests) > 0 {
 			results = append(results, newSetupErrorResult(tt.Policy, tt.Tests[0], errs.ToAggregate().Errors()))
