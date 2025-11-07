@@ -3,7 +3,11 @@ kind: ValidatingAdmissionPolicy
 metadata:
   name: simple-policy
 spec:
+  failurePolicy: Fail
   matchConstraints:
+    matchPolicy: "Equivalent"
+    namespaceSelector: {}
+    objectSelector: {}
     resourceRules:
     - apiGroups: [""]
       apiVersions: ["v1"]
@@ -18,7 +22,11 @@ kind: ValidatingAdmissionPolicy
 metadata:
   name: error-policy
 spec:
+  failurePolicy: Fail
   matchConstraints:
+    matchPolicy: "Equivalent"
+    namespaceSelector: {}
+    objectSelector: {}
     resourceRules:
     - apiGroups: [""]
       apiVersions: ["v1"]

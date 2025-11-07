@@ -22,7 +22,7 @@ spec:
     expression: int(params.data.maxReplicas)
   matchConditions:
   - name: replicas-increase
-    expression: "object.spec.replicas < variables.maxReplicas" 
+    expression: "object.spec.replicas < int(params.data.maxReplicas)" 
   mutations:
   - patchType: ApplyConfiguration
     applyConfiguration:

@@ -55,7 +55,7 @@ vapTestSuites:
       kind: Deployment
       name: non-deletable
     expect: deny
-- policy: deployment-replicas-with-matchCondition
+- policy: deployment-replicas-with-matchcondition
   tests:
   - object:
       kind: Deployment

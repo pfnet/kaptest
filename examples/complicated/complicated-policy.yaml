@@ -5,6 +5,9 @@ metadata:
 spec:
   failurePolicy: Fail
   matchConstraints:
+    matchPolicy: "Equivalent"
+    namespaceSelector: {}
+    objectSelector: {}
     resourceRules:
     - apiGroups: [""]
       apiVersions: ["v1"]
@@ -27,6 +30,9 @@ metadata:
 spec:
   failurePolicy: Fail
   matchConstraints:
+    matchPolicy: "Equivalent"
+    namespaceSelector: {}
+    objectSelector: {}
     resourceRules:
     - apiGroups: [""]
       apiVersions: ["v1"]
@@ -62,10 +68,10 @@ spec:
     kind: ConfigMap
   variables:
   - name: maxReplicas
-    expression: int(params.data.maxReplicas)
+    expression: "int(params.data.maxReplicas)"
   matchConditions:
   - name: replicas-increase
-    expression: "object.spec.replicas < variables.maxReplicas" 
+    expression: "object.spec.replicas < int(params.data.maxReplicas)" 
   mutations:
   - patchType: ApplyConfiguration
     applyConfiguration:
