@@ -17,3 +17,4 @@ vapTestSuites:
     userInfo:
       name: 'system:serviceaccount:foo:default'
     expect: deny
+    deniedMessage: "system:serviceaccount:foo:default is not allowed to create or update deployments"

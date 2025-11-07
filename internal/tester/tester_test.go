@@ -134,6 +134,14 @@ func TestRun(t *testing.T) {
 			wantErr:           nil,
 			validateManifests: false,
 		},
+		{
+			name: "err: unexpected message output",
+			args: []string{
+				"./testdata/vap-standard-resources.test/unexpected-denied-msg.yaml",
+			},
+			wantErr:           ErrTestFail,
+			validateManifests: true,
+		},
 	}
 	homeDir, err := os.UserHomeDir()
 	if err != nil {

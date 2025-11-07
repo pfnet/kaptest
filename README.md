@@ -112,6 +112,7 @@ vapTestSuites:
       groups: <groups>
       extra: ...
     expect: <allow|deny|skip|error>
+    deniedMessage: # Optional: check message when deny expected.
 mapTestSuites:
 - policy: <name> # MutatingAdmissionPolicy's name
   tests:

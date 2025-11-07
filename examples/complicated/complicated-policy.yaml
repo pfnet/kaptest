@@ -39,7 +39,7 @@ spec:
     expression: "'max-replicas' in variables.labels ? int(variables.labels['max-replicas']) : 1"
   validations:
   - expression: object.spec.replicas <= variables.maxReplicas
-    messageExpression: "'replicas must be less than ' + variables.maxReplicas"
+    messageExpression: "'replicas must be less than ' + string(variables.maxReplicas)"
 ---
 apiVersion: admissionregistration.k8s.io/v1alpha1
 kind: MutatingAdmissionPolicy

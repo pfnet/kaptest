@@ -19,6 +19,7 @@ vapTestSuites:
     param:
       name: config
     expect: deny
+    deniedMessage: "replicas must be less than 6"
 - policy: policy-with-namespace
   tests:
   - object:
@@ -31,6 +32,7 @@ vapTestSuites:
       name: bad-deployment-with-namespace
       namespace: foo
     expect: deny
+    deniedMessage: "replicas must be less than 5"
 mapTestSuites:
 - policy: policy-with-params
   tests:

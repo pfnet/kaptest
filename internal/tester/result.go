@@ -47,9 +47,15 @@ var _ testResult = &vapEvalResult{}
 
 func newVAPEvalResult(policy string, tc VAPTestCase, decisions []validating.PolicyDecision) *vapEvalResult {
 	result := validating.EvalAdmit
-	for _, d := range decisions {
+	for i, d := range decisions {
 		if d.Evaluation == validating.EvalDeny {
-			result = validating.EvalDeny
+			if tc.DeniedMsg != "" && tc.DeniedMsg != d.Message {
+				result = validating.EvalError
+				decisions[i].Message = fmt.Sprintf("message '%s' expected but got '%s'", tc.DeniedMsg, d.Message)
+				break
+			} else {
+				result = validating.EvalDeny
+			}
 		} else if d.Evaluation == validating.EvalError {
 			result = validating.EvalError
 			break

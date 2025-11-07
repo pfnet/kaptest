@@ -18,4 +18,4 @@ spec:
     name: replicas
   validations:
   - expression: variables.replicas <= int(params.data.maxReplicas)
-    messageExpression: "'replicas must be equal or less than ' + params.data.maxReplicas"
+    messageExpression: "'replicas must be equal or less than ' + string(params.data.maxReplicas)"
