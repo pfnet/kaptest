@@ -374,7 +374,13 @@ func newMutationParams(mp *v1alpha1.MutatingAdmissionPolicy, tc MAPTestCase, loa
 
 	var runtimeParamObj runtime.Object
 	if paramObj != nil {
-		// TODO: handle CRD definied resources as param objects
+		// this conversion is necessary for configmap to avoid following error
+		// pkg/mod/k8s.io/client-go@v0.32.1/tools/cache/reflector.go:251:
+		//   failed to list /v1, Resource=configmaps: item[0]: can't assign or convert unstructured.Unstructured into v1.ConfigMap
+		// "Unhandled Error" err="pkg/mod/k8s.io/client-go@v0.32.1/tools/cache/reflector.go:251:
+		//   Failed to watch /v1, Resource=configmaps: failed to list /v1, Resource=configmaps: item[0]:
+		//   can't assign or convert unstructured.Unstructured into v1.ConfigMap" logger="UnhandledError"
+		// TODO: why this error happens?
 		runtimeParamObj, err = convertToTyped(paramObj)
 		if err != nil {
 			return kaptest.MutationParams{}, nil, []error{fmt.Errorf("convert param to typed object: %w", err)}
@@ -392,7 +398,7 @@ func newMutationParams(mp *v1alpha1.MutatingAdmissionPolicy, tc MAPTestCase, loa
 	return param, expectObj, nil
 }
 
-// ensureObject ensures runtime.Object not to be nil
+// ensureObject ensures runtime.Object not to be nil.
 func ensureObject(obj *unstructured.Unstructured) runtime.Object {
 	if obj == nil {
 		var nilObj runtime.Object

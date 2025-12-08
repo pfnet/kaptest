@@ -197,7 +197,7 @@ func defaultingMAPPolicy(p *v1alpha1.MutatingAdmissionPolicy) {
 	}
 }
 
-// normalizeObject ensures int-able values to be int
+// normalizeObject ensures int-able values to be int.
 func normalizeObject(obj map[string]any) {
 	for k, v := range obj {
 		obj[k] = normalizeValue(v)

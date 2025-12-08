@@ -117,7 +117,6 @@ func TestRun(t *testing.T) {
 			name: "err: no schemaLocation for CRD",
 			args: []string{
 				"./testdata/vap-custom-resources.test/no-schema-locations.yaml",
-				"./testdata/map-custom-resources.test/no-schema-locations.yaml",
 			},
 			wantErr:           ErrTestFail,
 			validateManifests: true,
@@ -136,6 +135,7 @@ func TestRun(t *testing.T) {
 				"./testdata/vap-standard-resources.test/invalid-resources-test.yaml",
 				"./testdata/vap-custom-resources.test/no-schema-locations.yaml",
 				"./testdata/vap-with-crd-params.test/kaptest.yaml",
+				"./testdata/map-with-crd-params.test/kaptest.yaml",
 			},
 			wantErr:           nil,
 			validateManifests: false,

@@ -26,6 +26,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apiserver/pkg/authentication/user"
 	"k8s.io/utils/ptr"
 )
@@ -285,7 +286,15 @@ func TestMutator_Mutate_SimplePolicy_WithParam(t *testing.T) {
 	if len(matchedHooks) != 1 {
 		t.Errorf("expected %d matches, but %d matches", 1, len(matchedHooks))
 	}
-	if !equality.Semantic.DeepEqual(matchedHooks[0].Invocation.Param, p.ParamObj) {
+	actualParamObj, err := runtime.DefaultUnstructuredConverter.ToUnstructured(matchedHooks[0].Invocation.Param)
+	if err != nil {
+		t.Fatal(err)
+	}
+	expectedParamObj, err := runtime.DefaultUnstructuredConverter.ToUnstructured(p.ParamObj)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !equality.Semantic.DeepEqual(actualParamObj, expectedParamObj) {
 		t.Errorf("unexpected param is matched")
 	}
 
