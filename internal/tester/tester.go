@@ -311,9 +311,9 @@ func newValidationParams(vap *v1.ValidatingAdmissionPolicy, tc VAPTestCase, load
 	}
 
 	return kaptest.ValidationParams{
-		Object:       obj,
-		OldObject:    oldObj,
-		ParamObj:     paramObj,
+		Object:       ensureObject(obj),
+		OldObject:    ensureObject(oldObj),
+		ParamObj:     ensureObject(paramObj),
 		NamespaceObj: namespaceObj,
 		UserInfo:     &userInfo,
 	}, nil
@@ -368,34 +368,37 @@ func newMutationParams(mp *v1alpha1.MutatingAdmissionPolicy, tc MAPTestCase, loa
 
 	userInfo := NewK8sUserInfo(tc.UserInfo)
 
-	// We need to ensure the object follows scheme
-	// by converting unstructured object into typed object
-	// TODO: support CRD
-	objs := []*unstructured.Unstructured{obj, oldObj, paramObj, expectObj}
-	typedObjs := []runtime.Object{nil, nil, nil, nil}
-	for idx, o := range objs {
-		if o == nil {
-			continue
-		}
-		typedObjs[idx], err = convertToTyped(o)
-		if err != nil {
-			errs = append(errs, fmt.Errorf("failed to convert %s to typed object: %w", o.GetObjectKind().GroupVersionKind(), err))
-		}
-	}
-
 	if len(errs) > 0 {
 		return kaptest.MutationParams{}, nil, errs
 	}
 
+	var runtimeParamObj runtime.Object
+	if paramObj != nil {
+		// TODO: handle CRD definied resources as param objects
+		runtimeParamObj, err = convertToTyped(paramObj)
+		if err != nil {
+			return kaptest.MutationParams{}, nil, []error{fmt.Errorf("convert param to typed object: %w", err)}
+		}
+	}
+
 	param := kaptest.MutationParams{
-		Object:       typedObjs[0],
-		OldObject:    typedObjs[1],
-		ParamObj:     typedObjs[2],
+		Object:       ensureObject(obj),
+		OldObject:    ensureObject(oldObj),
+		ParamObj:     runtimeParamObj,
 		NamespaceObj: namespaceObj,
 		UserInfo:     &userInfo,
 	}
 
-	return param, typedObjs[3], nil
+	return param, expectObj, nil
+}
+
+// ensureObject ensures runtime.Object not to be nil
+func ensureObject(obj *unstructured.Unstructured) runtime.Object {
+	if obj == nil {
+		var nilObj runtime.Object
+		return nilObj
+	}
+	return obj
 }
 
 func getParamObj(loader *ResourceLoader, paramGVK schema.GroupVersionKind, param NamespacedName) (*unstructured.Unstructured, error) {
@@ -474,7 +477,8 @@ func convertToTyped(obj *unstructured.Unstructured) (runtime.Object, error) {
 	gvk := obj.GroupVersionKind()
 	newTypedObject, err := scheme.New(gvk)
 	if err != nil {
-		return nil, fmt.Errorf("GVK %s is not registered in the scheme: %w", gvk, err)
+		slog.Debug("GVK is not registered in the scheme, fallback to unstructured object", "gvk", gvk.String(), "error", err)
+		return obj.DeepCopy(), nil
 	}
 
 	err = runtime.DefaultUnstructuredConverter.FromUnstructured(obj.Object, newTypedObject)

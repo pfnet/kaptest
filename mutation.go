@@ -28,6 +28,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/managedfields"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apiserver/pkg/admission"
 	plugincel "k8s.io/apiserver/pkg/admission/plugin/cel"
@@ -117,9 +118,10 @@ type mutatorContext struct {
 }
 
 func newMutatorContext(ctx context.Context) (*mutatorContext, error) {
-	// Prepare TypeConvertManager
-	// TODO: support CRDs
-	tcm := patch.NewTypeConverterManager(nil, openapitest.NewEmbeddedFileClient())
+	// DeducedConverter for CRDs without schemas still works.
+	// TODO: allow supplying CRD schemas for better merge semantics.
+	staticConverter := managedfields.NewDeducedTypeConverter()
+	tcm := patch.NewTypeConverterManager(staticConverter, openapitest.NewEmbeddedFileClient())
 	go tcm.Run(ctx)
 
 	err := wait.PollUntilContextTimeout(ctx, 100*time.Millisecond, time.Second, false, func(context.Context) (done bool, err error) {

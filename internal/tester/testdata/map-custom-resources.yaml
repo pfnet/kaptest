@@ -1,0 +1,38 @@
+apiVersion: admissionregistration.k8s.io/v1alpha1
+kind: MutatingAdmissionPolicy
+metadata:
+  name: httpproxy-update
+spec:
+  matchConstraints:
+    matchPolicy: "Equivalent"
+    namespaceSelector: {}
+    objectSelector: {}
+    resourceRules:
+    - apiGroups:   ["projectcontour.io"]
+      apiVersions: ["*"]
+      operations:  ["CREATE", "UPDATE"]
+      resources:   ["httpproxies"]
+  failurePolicy: Fail
+  reinvocationPolicy: IfNeeded
+  mutations:
+  - patchType: ApplyConfiguration
+    applyConfiguration:
+      expression: >-
+        Object{
+          spec: Object.spec{
+            virtualhost: Object.spec.virtualhost{
+              fqdn: "mutated.foo-basic.bar.com",
+            },
+            routes: object.spec.routes.map(
+              x, Object.spec.routes{
+                conditions: x.conditions,
+                services: x.services.map(
+                  y, Object.spec.routes.services{
+                    name: y.name,
+                    port: 8080,
+                  }
+                ),
+              }
+            ),
+          }
+        }

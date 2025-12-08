@@ -39,6 +39,7 @@ func TestRun(t *testing.T) {
 				"./testdata/vap-with-namespaces.test/kaptest.yaml",
 				"./testdata/vap-with-userinfo.test/kaptest.yaml",
 				"./testdata/map-standard-resources.test/kaptest.yaml",
+				"./testdata/map-custom-resources.test/kaptest.yaml",
 				"./testdata/map-with-params.test/kaptest.yaml",
 				"./testdata/map-with-namespaces.test/kaptest.yaml",
 				"./testdata/map-with-userinfo.test/kaptest.yaml",
@@ -86,8 +87,11 @@ func TestRun(t *testing.T) {
 			validateManifests: true,
 		},
 		{
-			name:              "err: object not exist (custom resource)",
-			args:              []string{"./testdata/vap-custom-resources.test/invalid-no-obj.yaml"},
+			name: "err: object not exist (custom resource)",
+			args: []string{
+				"./testdata/vap-custom-resources.test/invalid-no-obj.yaml",
+				"./testdata/map-custom-resources.test/invalid-no-obj.yaml",
+			},
 			wantErr:           ErrTestFail,
 			validateManifests: true,
 		},
@@ -113,6 +117,7 @@ func TestRun(t *testing.T) {
 			name: "err: no schemaLocation for CRD",
 			args: []string{
 				"./testdata/vap-custom-resources.test/no-schema-locations.yaml",
+				"./testdata/map-custom-resources.test/no-schema-locations.yaml",
 			},
 			wantErr:           ErrTestFail,
 			validateManifests: true,
