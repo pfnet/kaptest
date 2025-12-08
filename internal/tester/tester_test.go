@@ -130,6 +130,7 @@ func TestRun(t *testing.T) {
 			args: []string{
 				"./testdata/vap-standard-resources.test/invalid-resources-test.yaml",
 				"./testdata/vap-custom-resources.test/no-schema-locations.yaml",
+				"./testdata/vap-with-crd-params.test/kaptest.yaml",
 			},
 			wantErr:           nil,
 			validateManifests: false,
