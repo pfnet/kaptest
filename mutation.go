@@ -22,7 +22,7 @@ import (
 	"time"
 
 	v1 "k8s.io/api/admissionregistration/v1"
-	"k8s.io/api/admissionregistration/v1alpha1"
+	"k8s.io/api/admissionregistration/v1beta1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -53,7 +53,7 @@ type MutatorInterface interface {
 }
 
 type Mutator struct {
-	policy    *v1alpha1.MutatingAdmissionPolicy
+	policy    *v1beta1.MutatingAdmissionPolicy
 	evaluator mutating.PolicyEvaluator
 }
 
@@ -95,7 +95,7 @@ func (p MutationParams) VersionedAttributes() (*admission.VersionedAttributes, e
 	}, nil
 }
 
-func NewMutator(policy *v1alpha1.MutatingAdmissionPolicy) (*Mutator, error) {
+func NewMutator(policy *v1beta1.MutatingAdmissionPolicy) (*Mutator, error) {
 	evaluator := compileMutatitionAddmissionPolicy(policy)
 	if evaluator.Error != nil {
 		return nil, evaluator.Error
@@ -280,11 +280,11 @@ func (m *Mutator) dispatchImpl(p MutationParams, dispatcherFactory func(mCtx *mu
 		return nil, fmt.Errorf("failed to initialize mutatorContext: %w", err)
 	}
 
-	binding := &v1alpha1.MutatingAdmissionPolicyBinding{
-		Spec: v1alpha1.MutatingAdmissionPolicyBindingSpec{
-			ParamRef: &v1alpha1.ParamRef{},
-			MatchResources: &v1alpha1.MatchResources{
-				MatchPolicy:       ptr.To(v1alpha1.Equivalent),
+	binding := &v1beta1.MutatingAdmissionPolicyBinding{
+		Spec: v1beta1.MutatingAdmissionPolicyBindingSpec{
+			ParamRef: &v1beta1.ParamRef{},
+			MatchResources: &v1beta1.MatchResources{
+				MatchPolicy:       ptr.To(v1beta1.Equivalent),
 				ObjectSelector:    &metav1.LabelSelector{},
 				NamespaceSelector: &metav1.LabelSelector{},
 			},
@@ -375,10 +375,10 @@ func (n namespaceParamScope) Name() meta.RESTScopeName {
 
 var _ meta.RESTScope = namespaceParamScope{}
 
-// Original: https://github.com/kubernetes/apiserver/blob/v0.32.1/pkg/admission/plugin/policy/mutating/compilation.go
+// Original: https://github.com/kubernetes/apiserver/blob/v0.35.3/pkg/admission/plugin/policy/mutating/compilation.go
 func compileMutatitionAddmissionPolicy(policy *mutating.Policy) mutating.PolicyEvaluator {
-	opts := plugincel.OptionalVariableDeclarations{HasParams: policy.Spec.ParamKind != nil, StrictCost: true, HasAuthorizer: true}
-	compiler, err := plugincel.NewCompositedCompiler(environment.MustBaseEnvSet(environment.DefaultCompatibilityVersion(), true))
+	opts := plugincel.OptionalVariableDeclarations{HasParams: policy.Spec.ParamKind != nil, HasAuthorizer: true}
+	compiler, err := plugincel.NewCompositedCompiler(environment.MustBaseEnvSet(environment.DefaultCompatibilityVersion()))
 	if err != nil {
 		return mutating.PolicyEvaluator{Error: &apiservercel.Error{
 			Type:   apiservercel.ErrorTypeInternal,
@@ -406,13 +406,13 @@ func compileMutatitionAddmissionPolicy(policy *mutating.Policy) mutating.PolicyE
 	patchOptions.HasPatchTypes = true
 	for _, m := range policy.Spec.Mutations {
 		switch m.PatchType {
-		case v1alpha1.PatchTypeJSONPatch:
+		case v1beta1.PatchTypeJSONPatch:
 			if m.JSONPatch != nil {
 				accessor := &patch.JSONPatchCondition{Expression: m.JSONPatch.Expression}
 				compileResult := compiler.CompileMutatingEvaluator(accessor, patchOptions, environment.StoredExpressions)
 				patchers = append(patchers, patch.NewJSONPatcher(compileResult))
 			}
-		case v1alpha1.PatchTypeApplyConfiguration:
+		case v1beta1.PatchTypeApplyConfiguration:
 			if m.ApplyConfiguration != nil {
 				accessor := &patch.ApplyConfigurationCondition{Expression: m.ApplyConfiguration.Expression}
 				compileResult := compiler.CompileMutatingEvaluator(accessor, patchOptions, environment.StoredExpressions)
@@ -424,8 +424,8 @@ func compileMutatitionAddmissionPolicy(policy *mutating.Policy) mutating.PolicyE
 	return mutating.PolicyEvaluator{Matcher: matcher, Mutators: patchers, CompositionEnv: compiler.CompositionEnv}
 }
 
-// Original: https://github.com/kubernetes/apiserver/blob/v0.32.1/pkg/admission/plugin/policy/mutating/plugin.go#L145-L151
-func convertv1alpha1Variables(variables []v1alpha1.Variable) []plugincel.NamedExpressionAccessor {
+// Original: https://github.com/kubernetes/apiserver/blob/v0.35.3/pkg/admission/plugin/policy/mutating/plugin.go#L145-L151
+func convertv1alpha1Variables(variables []v1beta1.Variable) []plugincel.NamedExpressionAccessor {
 	namedExpressions := make([]plugincel.NamedExpressionAccessor, len(variables))
 	for i, variable := range variables {
 		namedExpressions[i] = &mutating.Variable{Name: variable.Name, Expression: variable.Expression}
@@ -433,8 +433,8 @@ func convertv1alpha1Variables(variables []v1alpha1.Variable) []plugincel.NamedEx
 	return namedExpressions
 }
 
-// Original: https://github.com/kubernetes/apiserver/blob/v0.32.1/pkg/admission/plugin/policy/mutating/accessor.go#L69-L75
-func toV1FailurePolicy(failurePolicy *v1alpha1.FailurePolicyType) *v1.FailurePolicyType {
+// Original: https://github.com/kubernetes/apiserver/blob/v0.35.3/pkg/admission/plugin/policy/mutating/accessor.go#L69-L75
+func toV1FailurePolicy(failurePolicy *v1beta1.FailurePolicyType) *v1.FailurePolicyType {
 	if failurePolicy == nil {
 		return nil
 	}

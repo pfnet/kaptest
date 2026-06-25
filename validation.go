@@ -74,35 +74,23 @@ func NewValidator(policy *v1.ValidatingAdmissionPolicy) *Validator {
 	return &Validator{validator: v, policy: policy, matcher: m}
 }
 
-// Original: https://github.com/kubernetes/apiserver/blob/v0.32.1/pkg/admission/plugin/policy/validating/plugin.go
+// Original: https://github.com/kubernetes/apiserver/blob/v0.35.3/pkg/admission/plugin/policy/validating/plugin.go
 func compilePolicy(policy *v1.ValidatingAdmissionPolicy) (validating.Validator, matchconditions.Matcher) {
 	hasParam := false
 	if policy.Spec.ParamKind != nil {
 		hasParam = true
 	}
-	/*
-		strictCost := utilfeature.DefaultFeatureGate.Enabled(features.StrictCostEnforcementForVAP)
-	*/
-	strictCost := false
-	optionalVars := cel.OptionalVariableDeclarations{HasParams: hasParam, HasAuthorizer: true, StrictCost: strictCost}
-	expressionOptionalVars := cel.OptionalVariableDeclarations{HasParams: hasParam, HasAuthorizer: false, StrictCost: strictCost}
+	optionalVars := cel.OptionalVariableDeclarations{HasParams: hasParam, HasAuthorizer: true}
+	expressionOptionalVars := cel.OptionalVariableDeclarations{HasParams: hasParam, HasAuthorizer: false}
 	failurePolicy := policy.Spec.FailurePolicy
 	var matcher matchconditions.Matcher = nil
 	matchConditions := policy.Spec.MatchConditions
 	var compositionEnvTemplate *cel.CompositionEnv
-	/*
-		if strictCost {
-			compositionEnvTemplate = getCompositionEnvTemplateWithStrictCost()
-		} else {
-			compositionEnvTemplate = getCompositionEnvTemplateWithoutStrictCost()
-		}
-	*/
-	// https://github.com/kubernetes/apiserver/blob/v0.32.1/pkg/admission/plugin/policy/validating/plugin.go#L67
-	compositionEnvTemplate, err := cel.NewCompositionEnv(cel.VariablesTypeName, environment.MustBaseEnvSet(environment.DefaultCompatibilityVersion(), false))
+	// https://github.com/kubernetes/apiserver/blob/v0.35.3/pkg/admission/plugin/policy/validating/plugin.go#L51
+	compositionEnvTemplate, err := cel.NewCompositionEnv(cel.VariablesTypeName, environment.MustBaseEnvSet(environment.DefaultCompatibilityVersion()))
 	if err != nil {
 		panic(err)
 	}
-
 	filterCompiler := cel.NewCompositedCompilerFromTemplate(compositionEnvTemplate)
 	filterCompiler.CompileAndStoreVariables(convertv1beta1Variables(policy.Spec.Variables), optionalVars, environment.StoredExpressions)
 

@@ -24,7 +24,7 @@ import (
 
 	"gopkg.in/yaml.v2"
 	v1 "k8s.io/api/admissionregistration/v1"
-	"k8s.io/api/admissionregistration/v1alpha1"
+	"k8s.io/api/admissionregistration/v1beta1"
 	appsv1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/cli-runtime/pkg/printers"
@@ -158,19 +158,19 @@ func sampleValidatingAdmissionPolicy() *v1.ValidatingAdmissionPolicy {
 	return vap
 }
 
-func sampleMutatingAdmissionPolicy() *v1alpha1.MutatingAdmissionPolicy {
-	mut := &v1alpha1.MutatingAdmissionPolicy{
+func sampleMutatingAdmissionPolicy() *v1beta1.MutatingAdmissionPolicy {
+	mut := &v1beta1.MutatingAdmissionPolicy{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "sample-policy",
 		},
-		Spec: v1alpha1.MutatingAdmissionPolicySpec{
-			FailurePolicy:      ptr.To(v1alpha1.Fail),
-			ReinvocationPolicy: v1alpha1.IfNeededReinvocationPolicy,
-			MatchConstraints: &v1alpha1.MatchResources{
+		Spec: v1beta1.MutatingAdmissionPolicySpec{
+			FailurePolicy:      ptr.To(v1beta1.Fail),
+			ReinvocationPolicy: v1beta1.IfNeededReinvocationPolicy,
+			MatchConstraints: &v1beta1.MatchResources{
 				NamespaceSelector: &metav1.LabelSelector{},
 				ObjectSelector:    &metav1.LabelSelector{},
-				MatchPolicy:       ptr.To(v1alpha1.Equivalent),
-				ResourceRules: []v1alpha1.NamedRuleWithOperations{
+				MatchPolicy:       ptr.To(v1beta1.Equivalent),
+				ResourceRules: []v1beta1.NamedRuleWithOperations{
 					{
 						RuleWithOperations: v1.RuleWithOperations{
 							Rule: v1.Rule{
@@ -183,10 +183,10 @@ func sampleMutatingAdmissionPolicy() *v1alpha1.MutatingAdmissionPolicy {
 					},
 				},
 			},
-			Mutations: []v1alpha1.Mutation{
+			Mutations: []v1beta1.Mutation{
 				{
-					PatchType: v1alpha1.PatchTypeApplyConfiguration,
-					ApplyConfiguration: &v1alpha1.ApplyConfiguration{
+					PatchType: v1beta1.PatchTypeApplyConfiguration,
+					ApplyConfiguration: &v1beta1.ApplyConfiguration{
 						Expression: `
 							Object{
 								metadata: Object.metadata{
@@ -199,7 +199,7 @@ func sampleMutatingAdmissionPolicy() *v1alpha1.MutatingAdmissionPolicy {
 			},
 		},
 	}
-	mut.GetObjectKind().SetGroupVersionKind(v1alpha1.SchemeGroupVersion.WithKind("MutatingAdmissionPolicy"))
+	mut.GetObjectKind().SetGroupVersionKind(v1beta1.SchemeGroupVersion.WithKind("MutatingAdmissionPolicy"))
 	return mut
 }
 

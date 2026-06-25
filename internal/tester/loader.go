@@ -28,7 +28,7 @@ import (
 	"github.com/yannh/kubeconform/pkg/validator"
 	"gopkg.in/yaml.v2"
 	v1 "k8s.io/api/admissionregistration/v1"
-	"k8s.io/api/admissionregistration/v1alpha1"
+	"k8s.io/api/admissionregistration/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -38,7 +38,7 @@ import (
 
 type ResourceLoader struct {
 	Vaps      map[string]*v1.ValidatingAdmissionPolicy
-	Maps      map[string]*v1alpha1.MutatingAdmissionPolicy
+	Maps      map[string]*v1beta1.MutatingAdmissionPolicy
 	Resources map[NameWithGVK]*unstructured.Unstructured
 	validator validator.Validator
 }
@@ -46,7 +46,7 @@ type ResourceLoader struct {
 func NewResourceLoader(validator validator.Validator) *ResourceLoader {
 	return &ResourceLoader{
 		Vaps:      map[string]*v1.ValidatingAdmissionPolicy{},
-		Maps:      map[string]*v1alpha1.MutatingAdmissionPolicy{},
+		Maps:      map[string]*v1beta1.MutatingAdmissionPolicy{},
 		Resources: map[NameWithGVK]*unstructured.Unstructured{},
 		validator: validator,
 	}
@@ -66,9 +66,9 @@ func (r *ResourceLoader) LoadPolicies(paths []string) {
 		if err := v1.AddToScheme(s); err != nil {
 			panic(fmt.Errorf("failed to add admissionregistration.k8s.io/v1 to scheme: %w", err))
 		}
-		// supports admissionregistration.k8s.io/v1alpha1 for MutatingAdmissionPolicy
-		if err := v1alpha1.AddToScheme(s); err != nil {
-			panic(fmt.Errorf("failed to add admissionregistration.k8s.io/v1alpha1 to scheme: %w", err))
+		// supports admissionregistration.k8s.io/v1beta1 for MutatingAdmissionPolicy
+		if err := v1beta1.AddToScheme(s); err != nil {
+			panic(fmt.Errorf("failed to add admissionregistration.k8s.io/v1beta1 to scheme: %w", err))
 		}
 		decoder := serializer.NewCodecFactory(s).UniversalDeserializer()
 		for {
@@ -103,11 +103,11 @@ func (r *ResourceLoader) LoadPolicies(paths []string) {
 				vap := obj.(*v1.ValidatingAdmissionPolicy)
 				r.Vaps[vap.Name] = vap
 			case "MutatingAdmissionPolicy":
-				if gvk.Version != "v1alpha1" {
-					slog.Warn("only v1alpha1 MutatingAdmissionPolicy is supported", "version", gvk.Version)
+				if gvk.Version != "v1beta1" {
+					slog.Warn("only v1beta1 MutatingAdmissionPolicy is supported", "version", gvk.Version)
 					continue
 				}
-				m := obj.(*v1alpha1.MutatingAdmissionPolicy)
+				m := obj.(*v1beta1.MutatingAdmissionPolicy)
 				// Ensure nil labelSelectors to be matching everything
 				defaultingMAPPolicy(m)
 				r.Maps[m.Name] = m
@@ -181,7 +181,7 @@ func (r *ResourceLoader) GetResource(ngvk NameWithGVK) (*unstructured.Unstructur
 	return obj, nil
 }
 
-func defaultingMAPPolicy(p *v1alpha1.MutatingAdmissionPolicy) {
+func defaultingMAPPolicy(p *v1beta1.MutatingAdmissionPolicy) {
 	// MAP's matcher recognizes nil as labels.Nothing
 	// To match everything as expected, it needs to set empty LabelSeletor
 	// Ref: https://github.com/kubernetes/apiserver/blob/v0.32.1/pkg/admission/plugin/policy/generic/policy_matcher.go#L96

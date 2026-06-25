@@ -28,7 +28,7 @@ import (
 	"github.com/yannh/kubeconform/pkg/validator"
 	"gopkg.in/yaml.v2"
 	v1 "k8s.io/api/admissionregistration/v1"
-	"k8s.io/api/admissionregistration/v1alpha1"
+	"k8s.io/api/admissionregistration/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -319,7 +319,7 @@ func newValidationParams(vap *v1.ValidatingAdmissionPolicy, tc VAPTestCase, load
 	}, nil
 }
 
-func newMutationParams(mp *v1alpha1.MutatingAdmissionPolicy, tc MAPTestCase, loader *ResourceLoader) (kaptest.MutationParams, runtime.Object, []error) {
+func newMutationParams(mp *v1beta1.MutatingAdmissionPolicy, tc MAPTestCase, loader *ResourceLoader) (kaptest.MutationParams, runtime.Object, []error) {
 	var errs []error
 	var err error
 	var obj, oldObj *unstructured.Unstructured
@@ -498,7 +498,7 @@ func convertVAPToInternalVAP(p *v1.ValidatingAdmissionPolicy) *admissionregistra
 	return &res
 }
 
-func convertMAPToInternalMAP(p *v1alpha1.MutatingAdmissionPolicy) *admissionregistration.MutatingAdmissionPolicy {
+func convertMAPToInternalMAP(p *v1beta1.MutatingAdmissionPolicy) *admissionregistration.MutatingAdmissionPolicy {
 	pBytes, err := yaml.Marshal(p)
 	if err != nil {
 		panic(err)
