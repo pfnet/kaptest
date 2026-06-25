@@ -21,7 +21,7 @@ build:
 	${DOCKER_BUILD} --build-arg GOOS=$(GOOS) --build-arg GOARCH=$(GOARCH) \
 		--build-arg APP_NAME=$(APP_NAME) --target export-binary --output . .
 
-GOCREDITS_VERSION ?= v0.3.1
+GOCREDITS_VERSION ?= v0.4.0
 .PHONY: credits
 credits: go.sum
 	$(DOCKER_BUILD) --build-arg GOCREDITS_VERSION=$(GOCREDITS_VERSION) --target export-credits --output . .
