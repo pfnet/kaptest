@@ -1,38 +1,57 @@
-run:
-  timeout: 5m
+version: "2"
 output:
-  formats: colored-line-number
-  print-issued-lines: true
-  print-linter-name: true
+  formats:
+    text:
+      path: stdout
+      print-linter-name: true
+      print-issued-lines: true
 linters:
   enable:
-  - unconvert
-  - misspell
-  - prealloc
-  - bodyclose
-  - errorlint
-  - exhaustive
-  - gci
-  - goconst
-  - gocritic
-  - godot
-  - gofumpt
-  - gosec
-  - makezero
-  - nakedret
-  - nestif
-  - noctx
-  - predeclared
-  - whitespace
-linters-settings:
-  gocognit:
-    min-complexity: 20
-  exhaustive:
-    default-signifies-exhaustive: true
-issues:
-  exclude-rules:
-  - path: _test\.go
-    linters:
-    - errorlint
     - bodyclose
+    - errorlint
+    - exhaustive
+    - goconst
+    - gocritic
+    - godot
     - gosec
+    - makezero
+    - misspell
+    - nakedret
+    - nestif
+    - noctx
+    - prealloc
+    - predeclared
+    - unconvert
+    - whitespace
+  settings:
+    exhaustive:
+      default-signifies-exhaustive: true
+    gocognit:
+      min-complexity: 20
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    rules:
+      - linters:
+          - bodyclose
+          - errorlint
+          - gosec
+        path: _test\.go
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
+formatters:
+  enable:
+    - gci
+    - gofumpt
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
