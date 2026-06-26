@@ -78,7 +78,7 @@ func simpleMutatingPolicyAndBinding() (*v1beta1.MutatingAdmissionPolicy, *v1beta
 			Name: "simplePolicyBinding",
 		},
 		Spec: v1beta1.MutatingAdmissionPolicyBindingSpec{
-			PolicyName: mut.ObjectMeta.Name,
+			PolicyName: mut.Name,
 			MatchResources: &v1beta1.MatchResources{
 				MatchPolicy:       ptr.To(v1beta1.Equivalent),
 				ObjectSelector:    &metav1.LabelSelector{},

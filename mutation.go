@@ -23,6 +23,7 @@ import (
 
 	v1 "k8s.io/api/admissionregistration/v1"
 	"k8s.io/api/admissionregistration/v1beta1"
+	appsv1 "k8s.io/api/apps/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -124,7 +125,7 @@ func newMutatorContext(ctx context.Context) (*mutatorContext, error) {
 
 	err := wait.PollUntilContextTimeout(ctx, 100*time.Millisecond, time.Second, false, func(context.Context) (done bool, err error) {
 		// wait for schemes become ready
-		converter := tcm.GetTypeConverter(schema.GroupVersionKind{Group: "apps", Version: "v1", Kind: "Deployment"})
+		converter := tcm.GetTypeConverter(appsv1.SchemeGroupVersion.WithKind("Deployment"))
 		return converter != nil, nil
 	})
 	if err != nil {

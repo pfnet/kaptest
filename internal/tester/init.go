@@ -113,6 +113,8 @@ func testDir(targetFilePath string) string {
 	return targetFilePath[:len(targetFilePath)-len(filepath.Ext(targetFilePath))] + ".test"
 }
 
+const baseKind = "CHANGEME"
+
 func baseManifest(targetPath string, loader *ResourceLoader) []byte {
 	m := TestManifests{
 		Policies:      []string{filepath.Join("..", targetPath)},
@@ -127,7 +129,7 @@ func baseManifest(targetPath string, loader *ResourceLoader) []byte {
 				{
 					Object: NameWithGVK{
 						GVK: GVK{
-							Kind: "CHANGEME",
+							Kind: baseKind,
 						},
 						NamespacedName: NamespacedName{
 							Name: "ok",
@@ -138,7 +140,7 @@ func baseManifest(targetPath string, loader *ResourceLoader) []byte {
 				{
 					Object: NameWithGVK{
 						GVK: GVK{
-							Kind: "CHANGEME",
+							Kind: baseKind,
 						},
 						NamespacedName: NamespacedName{
 							Name: "bad",
@@ -157,19 +159,19 @@ func baseManifest(targetPath string, loader *ResourceLoader) []byte {
 				{
 					Object: NameWithGVK{
 						GVK: GVK{
-							Kind: "CHANGEME",
+							Kind: baseKind,
 						},
 						NamespacedName: NamespacedName{
-							Name: "mutated",
+							Name: "mutated", //nolint: goconst
 						},
 					},
 					Expect: Mutate,
 					ExpectObject: NameWithGVK{
 						GVK: GVK{
-							Kind: "CHANGEME",
+							Kind: baseKind,
 						},
 						NamespacedName: NamespacedName{
-							Name: "mutated",
+							Name: "mutated", //nolint: goconst
 						},
 					},
 				},

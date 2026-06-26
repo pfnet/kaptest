@@ -76,10 +76,7 @@ func NewValidator(policy *v1.ValidatingAdmissionPolicy) *Validator {
 
 // Original: https://github.com/kubernetes/apiserver/blob/v0.35.3/pkg/admission/plugin/policy/validating/plugin.go
 func compilePolicy(policy *v1.ValidatingAdmissionPolicy) (validating.Validator, matchconditions.Matcher) {
-	hasParam := false
-	if policy.Spec.ParamKind != nil {
-		hasParam = true
-	}
+	hasParam := policy.Spec.ParamKind != nil
 	optionalVars := cel.OptionalVariableDeclarations{HasParams: hasParam, HasAuthorizer: true}
 	expressionOptionalVars := cel.OptionalVariableDeclarations{HasParams: hasParam, HasAuthorizer: false}
 	failurePolicy := policy.Spec.FailurePolicy
