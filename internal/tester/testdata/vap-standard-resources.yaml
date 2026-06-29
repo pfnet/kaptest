@@ -73,3 +73,23 @@ spec:
     expression: request.operation == "CREATE" || oldObject.?metadata.?labels['immutable'].orValue("") != "true"
   validations:
   - expression: object.spec.replicas <= 5
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: deployment-eval-error
+spec:
+  failurePolicy: Fail
+  matchConstraints:
+    matchPolicy: "Equivalent"
+    namespaceSelector: {}
+    objectSelector: {}
+    resourceRules:
+    - apiGroups: [""]
+      apiVersions: ["v1"]
+      operations: ["CREATE", "UPDATE"]
+      resources: ["deployments"]
+  validations:
+  # Accessing a non-existent field raises a runtime evaluation error ("no such key").
+  # With failurePolicy: Fail this surfaces as an ERROR decision, exercising `expect: error`.
+  - expression: object.spec.nonExistentField == 5

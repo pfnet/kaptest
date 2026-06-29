@@ -45,5 +45,31 @@ spec:
         Object{
           metadata: Object.metadata{
             name: "rewrite-name-mutated",
-          } 
+          }
+        }
+---
+apiVersion: admissionregistration.k8s.io/v1beta1
+kind: MutatingAdmissionPolicy
+metadata:
+  name: invalid-mutation
+spec:
+  matchConstraints:
+    matchPolicy: "Equivalent"
+    resourceRules:
+    - apiGroups: ["apps"]
+      apiVersions: ["v1"]
+      resources: ["deployments"]
+      operations: ["*"]
+  failurePolicy: Fail
+  reinvocationPolicy: IfNeeded
+  mutations:
+  - patchType: ApplyConfiguration
+    applyConfiguration:
+      # Referencing a non-existent field raises a runtime evaluation error
+      # ("no such key") while applying the mutation, exercising `expect: error`.
+      expression: >-
+        Object{
+          metadata: Object.metadata{
+            labels: {"value": string(object.spec.nonExistentField)}
+          }
         }
