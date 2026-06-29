@@ -1,3 +1,4 @@
+version: v1alpha1
 validatingAdmissionPolicies:
 - ../vap-standard-resources.yaml
 resources:

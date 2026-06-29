@@ -218,6 +218,7 @@ func dummyDeployment() *appsv1.Deployment {
 
 func wantRootManifest() []byte {
 	m := TestManifests{
+		Version:   currentTestManifestVersion,
 		Policies:  []string{"../policy.yaml"},
 		Resources: []string{"resources.yaml"},
 		VapTestSuites: []TestsForSingleVapPolicy{

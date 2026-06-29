@@ -117,6 +117,7 @@ const baseKind = "CHANGEME"
 
 func baseManifest(targetPath string, loader *ResourceLoader) []byte {
 	m := TestManifests{
+		Version:       currentTestManifestVersion,
 		Policies:      []string{filepath.Join("..", targetPath)},
 		Resources:     []string{resourceManifestName},
 		VapTestSuites: []TestsForSingleVapPolicy{},

@@ -18,6 +18,7 @@ package tester
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -25,8 +26,13 @@ import (
 	"k8s.io/apiserver/pkg/authentication/user"
 )
 
+const currentTestManifestVersion = "v1alpha1"
+
+var supportedTestManifestVersions = []string{currentTestManifestVersion}
+
 // TestManifests is a struct to represent the whole test manifest file.
 type TestManifests struct {
+	Version         string                    `yaml:"version,omitempty"`
 	Policies        []string                  `yaml:"policies,omitempty"`
 	Resources       []string                  `yaml:"resources,omitempty"`
 	SchemaLocations []string                  `yaml:"schemaLocations,omitempty"` // used for resource manifest validation
@@ -35,6 +41,12 @@ type TestManifests struct {
 }
 
 func (t TestManifests) IsValid() (bool, string) {
+	if t.Version == "" {
+		return false, "version is required"
+	}
+	if t.Version != "" && !slices.Contains(supportedTestManifestVersions, t.Version) {
+		return false, fmt.Sprintf("unsupported version %q, supported versions: [%s]", t.Version, strings.Join(supportedTestManifestVersions, ", "))
+	}
 	if len(t.Policies) == 0 {
 		return false, "at least one policies is required"
 	}
