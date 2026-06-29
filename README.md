@@ -17,6 +17,19 @@ curl -sLO "https://github.com/pfnet/kaptest/releases/download/${KAPTEST_VERSION}
 tar -xvf "kaptest_${KAPTEST_VERSION}_${OS}_${ARCH}.tar.gz"
 ```
 
+## Migrating from v0.1.x to v0.2.x
+
+TestManifest format has been changed in v0.2.0 release.
+Please run the `migrate` command to migrate test manifests.
+
+```shell
+# output migrated results to stdout
+kaptest migrate <your-manifest.yaml> --dry-run
+
+# this overwrites the existing test manifest file.
+kaptest migrate <your-manifest.yaml>
+```
+
 ## How to Use
 
 ### Setup Test Manifests
@@ -36,6 +49,7 @@ policy.test
 └── resources.yaml
 
 $ cat policy.test/kaptest.yaml
+version: v1alpha1
 policies:
 - ../policy.yaml
 resources:
