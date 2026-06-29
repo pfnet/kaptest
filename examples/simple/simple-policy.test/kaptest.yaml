@@ -1,3 +1,4 @@
+version: v1alpha1
 policies:
 - ../simple-policy.yaml
 resources:

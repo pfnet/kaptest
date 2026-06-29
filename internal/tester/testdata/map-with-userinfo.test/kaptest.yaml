@@ -1,3 +1,4 @@
+version: v1alpha1
 policies:
 - ../map-with-userinfo.yaml
 resources:

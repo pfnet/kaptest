@@ -35,7 +35,7 @@ spec:
   validations:
   - expression: object.spec.rrrrreplicas <= 5
 ---
-apiVersion: admissionregistration.k8s.io/v1alpha1
+apiVersion: admissionregistration.k8s.io/v1beta1
 kind: MutatingAdmissionPolicy
 metadata:
   name: simple-policy

@@ -79,10 +79,12 @@ func (r *vapEvalResult) String(verbose bool) string {
 	out := []string{summary}
 	if !r.Pass() || verbose {
 		for _, d := range r.Decisions {
-			if d.Evaluation == validating.EvalDeny {
+			switch d.Evaluation {
+			case validating.EvalDeny:
 				out = append(out, fmt.Sprintf("--- DENY: reason %q, message %q", d.Reason, d.Message))
-			} else if d.Evaluation == validating.EvalError {
+			case validating.EvalError:
 				out = append(out, fmt.Sprintf("--- ERROR: reason %q, message %q", d.Reason, d.Message))
+			case validating.EvalAdmit:
 			}
 		}
 	}
@@ -182,7 +184,8 @@ func (r *setupErrorResult) Pass() bool {
 
 func (r *setupErrorResult) String(verbose bool) string {
 	summary := r.TestCase.SummaryLine(r.Pass(), r.Policy, "SETUP ERROR")
-	out := []string{summary}
+	out := make([]string, 1, 1+len(r.Errors))
+	out[0] = summary
 	for _, err := range r.Errors {
 		out = append(out, fmt.Sprintf("--- ERROR: %v", err))
 	}
@@ -277,7 +280,7 @@ func summarize(manifestPath string, results []testResult, verbose bool) testResu
 	summary := testResultSummary{
 		manifestPath: manifestPath,
 	}
-	out := []string{}
+	out := make([]string, 0, len(results))
 	for _, r := range results {
 		if r.Pass() {
 			summary.pass++

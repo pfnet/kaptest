@@ -218,7 +218,7 @@ func TestValidator_EvalMatchCondition(t *testing.T) {
 	}
 
 	appLabelNotMatch := simpleDeployment()
-	appLabelNotMatch.ObjectMeta.Labels = map[string]string{
+	appLabelNotMatch.Labels = map[string]string{
 		"app": "notMatchApp",
 	}
 	appLabelNotMatch.Spec.Selector.MatchLabels = map[string]string{
@@ -226,7 +226,7 @@ func TestValidator_EvalMatchCondition(t *testing.T) {
 	}
 
 	matchLabelsNotMatch := simpleDeployment()
-	matchLabelsNotMatch.ObjectMeta.Labels = map[string]string{
+	matchLabelsNotMatch.Labels = map[string]string{
 		"app": "matchApp",
 	}
 	matchLabelsNotMatch.Spec.Selector.MatchLabels = map[string]string{
@@ -363,13 +363,13 @@ func withReplicas(replicas int) func(*appsv1.Deployment) {
 
 func withLabels(labels map[string]string) func(*appsv1.Deployment) {
 	return func(d *appsv1.Deployment) {
-		d.ObjectMeta.Labels = labels
+		d.Labels = labels
 	}
 }
 
 func withMatchLabels(labels map[string]string) func(*appsv1.Deployment) {
 	return func(d *appsv1.Deployment) {
 		d.Spec.Selector.MatchLabels = labels
-		d.Spec.Template.ObjectMeta.Labels = labels
+		d.Spec.Template.Labels = labels
 	}
 }
