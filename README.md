@@ -103,6 +103,7 @@ resources:
 schemaLocations: # Optional: For Custom Resources
 - <url/to/crd/schema.json>
 - <path/to/crd/schema.json>
+skipSchemaValidation: <true|false> # Optional: skip resource manifest validation for this test manifest file
 vapTestSuites:
 - policy: <name> # ValidatingAdmissionPolicy's name
   tests:
@@ -180,7 +181,10 @@ For custom resources, users need to define `schemaLocations` in a test policy to
 The schema specification follows kubeconform's one and users can utlize schemas for it.
 The example is described in [internal/tester/testdata/vap-custom-resources.test/kaptest.yaml](./internal/tester/testdata/vap-custom-resources.test/kaptest.yaml).
 
-`kaptest run <test_manifest.yaml> --validate-resource-manifests=false` disables the validation.
+`kaptest run <test_manifest.yaml> --validate-resource-manifests=false` disables the validation for all test manifest files.
+
+To disable the validation for a specific test manifest file, set `skipSchemaValidation: true` in the file instead.
+The example is described in [internal/tester/testdata/vap-custom-resources.test/skip-schema-validation.yaml](./internal/tester/testdata/vap-custom-resources.test/skip-schema-validation.yaml).
 
 ### Operation Type
 

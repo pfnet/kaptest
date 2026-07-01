@@ -1,0 +1,13 @@
+version: v1alpha1
+policies:
+- ../vap-standard-resources.yaml
+resources:
+- invalid-resources.yaml
+skipSchemaValidation: true
+vapTestSuites:
+- policy: deployment-replicas
+  tests:
+  - object:
+      kind: Deployment
+      name: ok
+    expect: admit

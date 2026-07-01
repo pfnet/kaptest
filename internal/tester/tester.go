@@ -115,7 +115,7 @@ func runEach(cfg TesterCmdConfig, manifestPath string) testResultSummary {
 	defer os.Chdir(pwd) //nolint:errcheck
 
 	var manifestValidator validator.Validator = nil
-	if cfg.ValidateResourceManifest {
+	if cfg.ValidateResourceManifest && !manifests.SkipSchemaValidation {
 		// Below line causes gofumpt's false positive
 		err = os.MkdirAll(cfg.SchemaCache, 0755) //nolint:gofumpt
 		if err != nil {

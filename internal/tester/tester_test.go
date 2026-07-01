@@ -135,6 +135,15 @@ func TestRun(t *testing.T) {
 			validateManifests: false,
 		},
 		{
+			name: "ok: invalid resource manifest or no schemas, but skipSchemaValidation is set",
+			args: []string{
+				"./testdata/vap-standard-resources.test/skip-schema-validation.yaml",
+				"./testdata/vap-custom-resources.test/skip-schema-validation.yaml",
+			},
+			wantErr:           nil,
+			validateManifests: true,
+		},
+		{
 			name: "err: unexpected message output",
 			args: []string{
 				"./testdata/vap-standard-resources.test/unexpected-denied-msg.yaml",
