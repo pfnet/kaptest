@@ -1,0 +1,13 @@
+version: v1alpha1
+policies:
+- ../vap-custom-resources.yaml
+resources:
+- resources.yaml
+skipSchemaValidation: true
+vapTestSuites:
+- policy: httpproxy-auth
+  tests:
+  - object:
+      kind: HTTPProxy
+      name: ok
+    expect: admit
