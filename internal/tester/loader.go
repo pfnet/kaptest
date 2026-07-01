@@ -101,6 +101,8 @@ func (r *ResourceLoader) LoadPolicies(paths []string) {
 					continue
 				}
 				vap := obj.(*v1.ValidatingAdmissionPolicy)
+				// Ensure matchConstraints to be defaulted
+				defaultingVAP(vap)
 				r.Vaps[vap.Name] = vap
 			case "MutatingAdmissionPolicy":
 				if gvk.Version != "v1beta1" {
@@ -179,6 +181,19 @@ func (r *ResourceLoader) GetResource(ngvk NameWithGVK) (*unstructured.Unstructur
 		}
 	}
 	return obj, nil
+}
+
+func defaultingVAP(p *v1.ValidatingAdmissionPolicy) {
+	if p.Spec.MatchConstraints.MatchPolicy == nil {
+		eq := v1.Equivalent
+		p.Spec.MatchConstraints.MatchPolicy = &eq
+	}
+	if p.Spec.MatchConstraints.NamespaceSelector == nil {
+		p.Spec.MatchConstraints.NamespaceSelector = &metav1.LabelSelector{}
+	}
+	if p.Spec.MatchConstraints.ObjectSelector == nil {
+		p.Spec.MatchConstraints.ObjectSelector = &metav1.LabelSelector{}
+	}
 }
 
 func defaultingMAP(p *v1beta1.MutatingAdmissionPolicy) {
