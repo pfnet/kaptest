@@ -1,0 +1,17 @@
+version: v1alpha1
+policies:
+- ../vap-defaulting.yaml
+resources:
+- resources.yaml
+vapTestSuites:
+- policy: deployment-replicas
+  tests:
+  - object:
+      kind: Deployment
+      name: ok
+    expect: admit
+  - object:
+      kind: Deployment
+      name: bad
+    expect: deny
+    deniedMessage: "specified replicas 6 exceeds limit 5"

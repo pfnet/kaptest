@@ -1,0 +1,42 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: base
+  namespace: default
+  labels:
+    app: ok-deployment
+spec:
+  replicas: 5
+  selector:
+    matchLabels:
+      app: ok-deployment
+  template:
+    metadata:
+      labels:
+        app: ok-deployment
+    spec:
+      containers:
+      - name: nginx
+        image: nginx
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: add-label-mutated
+  namespace: default
+  labels:
+    environment: "test"
+    app: ok-deployment
+spec:
+  replicas: 5
+  selector:
+    matchLabels:
+      app: ok-deployment
+  template:
+    metadata:
+      labels:
+        app: ok-deployment
+    spec:
+      containers:
+      - name: nginx
+        image: nginx
