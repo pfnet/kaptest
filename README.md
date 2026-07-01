@@ -6,7 +6,7 @@ Kaptest is a testing tool to check the CEL expressions of [Validating Admission 
 
 Kaptest specializes in evaluating CEL expressions.
 It allows you to perform fast and simple testing of CEL expressions,
-without having to start the kube-apiserver, create the `ValidatingAdmissionPolicy`, `MutatingAdmissionPolicy`, and parameter resources, or link it to the target resources using `ValidatingAdmissionPolicyBinding`.
+without having to start the kube-apiserver, create the `ValidatingAdmissionPolicy`, `MutatingAdmissionPolicy`, and parameter resources, or link it to the target resources using `ValidatingAdmissionPolicyBinding` or `MutatingAdmissionPolicyBinding`.
 
 ## Installation
 
@@ -126,7 +126,7 @@ vapTestSuites:
       user: <sub>
       groups: <groups>
       extra: ...
-    expect: <allow|deny|skip|error>
+    expect: <admit|deny|skip|error>
     deniedMessage: # Optional: check message when deny expected.
 mapTestSuites:
 - policy: <name> # MutatingAdmissionPolicy's name
@@ -196,9 +196,9 @@ You can describe the cases for CREATE, UPDATE, and DELETE operations based on wh
 
 ### Evaluation Results
 
-Kaptest focuses on evaluating CEL expressions, so even when an error occurs or `matchConditions` are not met it does not change the result to `allow` or `deny`. The test results of Kaptest will be one of the following four values:
+Kaptest focuses on evaluating CEL expressions, so even when an error occurs or `matchConditions` are not met it does not change the result to `admit` or `deny`. The test results of Kaptest will be one of the following four values:
 
-- **allow**: When all `matchConditions` and `validations` are evaluated as `true`
+- **admit**: When all `matchConditions` and `validations` are evaluated as `true`
 - **deny**: When all `matchConditions` are evaluated as `true`, and at least one `validation` is evaluated as `false`
 - **mutate**: When mutating hooks found and the object is mutated, and the mutated object is equal to expectObject 
 - **skip**: When at least one `matchCondition` is evaluated as `false` in VAP or no mutating hooks found in MAP
