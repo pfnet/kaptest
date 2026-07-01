@@ -71,8 +71,35 @@ func TestRun(t *testing.T) {
 			validateManifests: true,
 		},
 		{
-			name:              "err: policy not exist",
-			args:              []string{"./testdata/vap-standard-resources.test/invalid-no-policy.yaml"},
+			name: "err: policy not exist",
+			args: []string{
+				"./testdata/vap-standard-resources.test/invalid-no-policy.yaml",
+				"./testdata/map-standard-resources.test/invalid-no-policy.yaml",
+			},
+			wantErr:           ErrTestFail,
+			validateManifests: true,
+		},
+		{
+			name:              "err: unsupported version",
+			args:              []string{"./testdata/invalid-unsupported-version.yaml"},
+			wantErr:           ErrTestFail,
+			validateManifests: true,
+		},
+		{
+			name:              "err: no policies",
+			args:              []string{"./testdata/invalid-no-policies.yaml"},
+			wantErr:           ErrTestFail,
+			validateManifests: true,
+		},
+		{
+			name:              "err: no resources",
+			args:              []string{"./testdata/invalid-no-resources.yaml"},
+			wantErr:           ErrTestFail,
+			validateManifests: true,
+		},
+		{
+			name:              "err: no test suites",
+			args:              []string{"./testdata/invalid-no-testsuites.yaml"},
 			wantErr:           ErrTestFail,
 			validateManifests: true,
 		},

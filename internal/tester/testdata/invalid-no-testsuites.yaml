@@ -1,0 +1,5 @@
+version: v1alpha1
+policies:
+- ../vap-standard-resources.yaml
+resources:
+- vap-standard-resources.test/resources.yaml

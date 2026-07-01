@@ -6,16 +6,33 @@ resources:
 mapTestSuites:
 - policy: simple-policy
   tests:
-  - object: 
+  # CREATE: only object is given (no oldObject to mutate).
+  - object:
       kind: Deployment
       name: base
     expect: mutate
     expectObject:
       kind: Deployment
       name: add-label-mutated
+  # UPDATE: both object and oldObject are given.
+  - object:
+      kind: Deployment
+      name: base
+    oldObject:
+      kind: Deployment
+      name: base
+    expect: mutate
+    expectObject:
+      kind: Deployment
+      name: add-label-mutated
+  # DELETE: only oldObject is given (no object to mutate).
+  - oldObject:
+      kind: Deployment
+      name: base
+    expect: error
 - policy: policy-rewrite-name
   tests:
-  - object: 
+  - object:
       kind: Deployment
       name: base
     expect: mutate
@@ -23,3 +40,11 @@ mapTestSuites:
       kind: Deployment
       name: rewrite-name-mutated
     disableNameOverwrite: true
+- policy: invalid-mutation
+  tests:
+  # The mutation expression references a non-existent field,
+  # so applying it results in a runtime evaluation error.
+  - object:
+      kind: Deployment
+      name: base
+    expect: error

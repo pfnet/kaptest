@@ -1,10 +1,8 @@
 version: v1alpha1
-policies:
-- ../vap-standard-resources.yaml
 resources:
-- resources.yaml
+- vap-standard-resources.test/resources.yaml
 vapTestSuites:
-- policy: not-exist
+- policy: deployment-replicas
   tests:
   - object:
       kind: Deployment

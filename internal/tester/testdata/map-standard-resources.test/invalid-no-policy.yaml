@@ -1,0 +1,15 @@
+version: v1alpha1
+policies:
+- ../map-standard-resources.yaml
+resources:
+- resources.yaml
+mapTestSuites:
+- policy: not-exist
+  tests:
+  - object:
+      kind: Deployment
+      name: base
+    expect: mutate
+    expectObject:
+      kind: Deployment
+      name: add-label-mutated

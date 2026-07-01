@@ -83,3 +83,9 @@ vapTestSuites:
       kind: Deployment
       name: mutable
     expect: deny
+- policy: deployment-eval-error
+  tests:
+  - object:
+      kind: Deployment
+      name: ok
+    expect: error
