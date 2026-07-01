@@ -42,6 +42,8 @@ func TestRun(t *testing.T) {
 				"./testdata/map-with-params.test/kaptest.yaml",
 				"./testdata/map-with-namespaces.test/kaptest.yaml",
 				"./testdata/map-with-userinfo.test/kaptest.yaml",
+				"./testdata/vap-defaulting.test/kaptest.yaml",
+				"./testdata/map-defaulting.test/kaptest.yaml",
 			},
 			wantErr:           nil,
 			validateManifests: true,

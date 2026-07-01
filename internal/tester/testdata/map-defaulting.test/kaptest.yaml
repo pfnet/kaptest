@@ -1,0 +1,15 @@
+version: v1alpha1
+policies:
+- ../map-defaulting.yaml
+resources:
+- resources.yaml
+mapTestSuites:
+- policy: simple-policy
+  tests:
+  - object:
+      kind: Deployment
+      name: base
+    expect: mutate
+    expectObject:
+      kind: Deployment
+      name: add-label-mutated

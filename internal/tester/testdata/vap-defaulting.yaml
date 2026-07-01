@@ -1,0 +1,17 @@
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: deployment-replicas
+spec:
+  failurePolicy: Fail
+  # matchPolicy, namespaceSelector and objectSelector are intentionally omitted
+  # to verify that ResourceLoader defaults them (see defaultingVAP in loader.go).
+  matchConstraints:
+    resourceRules:
+    - apiGroups: [""]
+      apiVersions: ["v1"]
+      operations: ["CREATE", "UPDATE"]
+      resources: ["deployments"]
+  validations:
+  - expression: object.spec.replicas <= 5
+    messageExpression: "'specified replicas '+ string(object.spec.replicas) +' exceeds limit 5'"
