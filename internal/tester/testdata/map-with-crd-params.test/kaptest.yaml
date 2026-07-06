@@ -1,0 +1,25 @@
+policies:
+- ../map-with-crd-params.yaml
+resources:
+- resources.yaml
+mapTestSuites:
+- policy: deployment-replicas
+  tests:
+  - object:
+      kind: Deployment
+      name: small
+      namespace: foo
+    param:
+      name: my-config
+    expect: mutate
+    expectObject:
+      kind: Deployment
+      name: ok
+      namespace: foo
+  - object:
+      kind: Deployment
+      name: ok
+      namespace: foo
+    param:
+      name: my-config
+    expect: skip

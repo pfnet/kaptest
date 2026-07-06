@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"math"
 	"os"
 
 	"github.com/yannh/kubeconform/pkg/resource"
@@ -144,6 +145,8 @@ func (r *ResourceLoader) LoadResources(paths []string) {
 				slog.Warn("failed to decode resource", "error", err)
 				continue
 			}
+			// ensure numbers to be int if possible
+			normalizeObject(obj)
 			unstructuredObj := &unstructured.Unstructured{Object: obj}
 
 			// if resource manifest validation is enabled, check whether the resource manifest follows a schema.
@@ -210,5 +213,36 @@ func defaultingMAP(p *v1beta1.MutatingAdmissionPolicy) {
 	}
 	if p.Spec.MatchConstraints.ObjectSelector == nil {
 		p.Spec.MatchConstraints.ObjectSelector = &metav1.LabelSelector{}
+	}
+}
+
+// normalizeObject ensures int-able values to be int.
+func normalizeObject(obj map[string]any) {
+	for k, v := range obj {
+		obj[k] = normalizeValue(v)
+	}
+}
+
+func normalizeArray(arr []any) {
+	for i := range arr {
+		arr[i] = normalizeValue(arr[i])
+	}
+}
+
+func normalizeValue(v any) any {
+	switch val := v.(type) {
+	case map[string]any:
+		normalizeObject(val)
+		return val
+	case []any:
+		normalizeArray(val)
+		return val
+	case float64:
+		if math.Trunc(val) == float64(int64(val)) {
+			return int64(val)
+		}
+		return val
+	default:
+		return v
 	}
 }

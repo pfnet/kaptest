@@ -39,6 +39,7 @@ func TestRun(t *testing.T) {
 				"./testdata/vap-with-namespaces.test/kaptest.yaml",
 				"./testdata/vap-with-userinfo.test/kaptest.yaml",
 				"./testdata/map-standard-resources.test/kaptest.yaml",
+				"./testdata/map-custom-resources.test/kaptest.yaml",
 				"./testdata/map-with-params.test/kaptest.yaml",
 				"./testdata/map-with-namespaces.test/kaptest.yaml",
 				"./testdata/map-with-userinfo.test/kaptest.yaml",
@@ -115,8 +116,11 @@ func TestRun(t *testing.T) {
 			validateManifests: true,
 		},
 		{
-			name:              "err: object not exist (custom resource)",
-			args:              []string{"./testdata/vap-custom-resources.test/invalid-no-obj.yaml"},
+			name: "err: object not exist (custom resource)",
+			args: []string{
+				"./testdata/vap-custom-resources.test/invalid-no-obj.yaml",
+				"./testdata/map-custom-resources.test/invalid-no-obj.yaml",
+			},
 			wantErr:           ErrTestFail,
 			validateManifests: true,
 		},
@@ -159,6 +163,8 @@ func TestRun(t *testing.T) {
 			args: []string{
 				"./testdata/vap-standard-resources.test/invalid-resources-test.yaml",
 				"./testdata/vap-custom-resources.test/no-schema-locations.yaml",
+				"./testdata/vap-with-crd-params.test/kaptest.yaml",
+				"./testdata/map-with-crd-params.test/kaptest.yaml",
 			},
 			wantErr:           nil,
 			validateManifests: false,

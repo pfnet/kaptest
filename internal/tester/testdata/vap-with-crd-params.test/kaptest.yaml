@@ -1,0 +1,20 @@
+policies:
+- ../vap-with-crd-params.yaml
+resources:
+- resources.yaml
+vapTestSuites:
+- policy: deployment-replicas
+  tests:
+  - object:
+      kind: Deployment
+      name: ok
+    param:
+      name: my-config
+    expect: admit
+  - object:
+      kind: Deployment
+      name: bad
+    param:
+      name: my-config
+    expect: deny
+    deniedMessage: "replicas must be equal or less than 5"

@@ -1,0 +1,16 @@
+policies:
+- ../map-custom-resources.yaml
+resources:
+- resources.yaml
+schemaLocations:
+- "https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json"
+mapTestSuites:
+- policy: httpproxy-update
+  tests:
+  - object:
+      kind: HTTPProxy
+      name: base
+    expect: mutate
+    expectObject:
+      kind: HTTPProxy
+      name: updated

@@ -29,6 +29,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/managedfields"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apiserver/pkg/admission"
 	plugincel "k8s.io/apiserver/pkg/admission/plugin/cel"
@@ -41,6 +42,8 @@ import (
 	"k8s.io/apiserver/pkg/authorization/authorizer"
 	apiservercel "k8s.io/apiserver/pkg/cel"
 	"k8s.io/apiserver/pkg/cel/environment"
+	"k8s.io/client-go/dynamic/dynamicinformer"
+	dynamicfake "k8s.io/client-go/dynamic/fake"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes/fake"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -109,18 +112,21 @@ func NewMutator(policy *v1beta1.MutatingAdmissionPolicy) (*Mutator, error) {
 }
 
 type mutatorContext struct {
-	tcm             patch.TypeConverterManager
-	auth            authorizer.Authorizer
-	objInterface    admission.ObjectInterfaces
-	matcher         *matching.Matcher
-	client          *fake.Clientset
-	informerFactory informers.SharedInformerFactory
+	tcm                      patch.TypeConverterManager
+	auth                     authorizer.Authorizer
+	objInterface             admission.ObjectInterfaces
+	matcher                  *matching.Matcher
+	namespaceClient          *fake.Clientset
+	namespaceInformerFactory informers.SharedInformerFactory
+	dynamicClient            *dynamicfake.FakeDynamicClient
+	dynamicInformerFactory   dynamicinformer.DynamicSharedInformerFactory
 }
 
-func newMutatorContext(ctx context.Context) (*mutatorContext, error) {
-	// Prepare TypeConvertManager
-	// TODO: support CRDs
-	tcm := patch.NewTypeConverterManager(nil, openapitest.NewEmbeddedFileClient())
+func newMutatorContext(ctx context.Context, policy *v1alpha1.MutatingAdmissionPolicy) (*mutatorContext, error) {
+	// DeducedConverter for CRDs without schemas still works.
+	// TODO: allow supplying CRD schemas for better merge semantics.
+	staticConverter := managedfields.NewDeducedTypeConverter()
+	tcm := patch.NewTypeConverterManager(staticConverter, openapitest.NewEmbeddedFileClient())
 	go tcm.Run(ctx)
 
 	err := wait.PollUntilContextTimeout(ctx, 100*time.Millisecond, time.Second, false, func(context.Context) (done bool, err error) {
@@ -147,34 +153,64 @@ func newMutatorContext(ctx context.Context) (*mutatorContext, error) {
 	// What will happen when mutating with the default values?
 	objInterface := admission.NewObjectInterfacesFromScheme(scheme)
 
-	// Prepare Client
-	client := fake.NewClientset()
-
+	// Prepare native fake client for namespaces
+	namespaceClient := fake.NewClientset()
+	namespaceInformerFactory := informers.NewSharedInformerFactory(namespaceClient, 0)
 	// Prepare matcher
-	informerFactory := informers.NewSharedInformerFactory(client, 0)
-	matcher := matching.NewMatcher(informerFactory.Core().V1().Namespaces().Lister(), client)
+	matcher := matching.NewMatcher(namespaceInformerFactory.Core().V1().Namespaces().Lister(), namespaceClient)
+
+	gvrToListKind := map[schema.GroupVersionResource]string{}
+	if policy != nil && policy.Spec.ParamKind != nil {
+		gv, err := schema.ParseGroupVersion(policy.Spec.ParamKind.APIVersion)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse paramKind APIVersion: %w", err)
+		}
+		gvk := schema.GroupVersionKind{
+			Group:   gv.Group,
+			Version: gv.Version,
+			Kind:    policy.Spec.ParamKind.Kind,
+		}
+		gvr, _ := meta.UnsafeGuessKindToResource(gvk)
+		gvrToListKind[gvr] = gvk.Kind + "List"
+	}
+	dynamicClient := dynamicfake.NewSimpleDynamicClientWithCustomListKinds(scheme, gvrToListKind)
+	dynamicInformerFactory := dynamicinformer.NewDynamicSharedInformerFactory(dynamicClient, 0)
 
 	return &mutatorContext{
-		tcm:             tcm,
-		auth:            authorizer,
-		objInterface:    objInterface,
-		matcher:         matcher,
-		client:          client,
-		informerFactory: informerFactory,
+		tcm:                      tcm,
+		auth:                     authorizer,
+		objInterface:             objInterface,
+		matcher:                  matcher,
+		namespaceClient:          namespaceClient,
+		namespaceInformerFactory: namespaceInformerFactory,
+		dynamicClient:            dynamicClient,
+		dynamicInformerFactory:   dynamicInformerFactory,
 	}, nil
 }
 
 func (mc *mutatorContext) addObjectAndEnsureSynced(ctx context.Context, obj runtime.Object) error {
-	err := mc.client.Tracker().Add(obj)
-	if err != nil {
-		return fmt.Errorf("failed to add object: %w", err)
+	var informer informers.GenericInformer
+	if obj.GetObjectKind().GroupVersionKind().String() == "/v1, Kind=Namespace" {
+		// Namespace object needs to be handled built-in fake client
+		err := mc.namespaceClient.Tracker().Add(obj)
+		if err != nil {
+			return fmt.Errorf("failed to add object: %w", err)
+		}
+		informer, err = mc.namespaceInformerFactory.ForResource(schema.GroupVersionResource{Version: "v1", Resource: "namespaces"})
+		if err != nil {
+			return fmt.Errorf("failed to get informer: %w", err)
+		}
+	} else {
+		err := mc.dynamicClient.Tracker().Add(obj)
+		if err != nil {
+			return fmt.Errorf("failed to add object: %w", err)
+		}
+		// TODO: better GVR handling
+		gvr, _ := meta.UnsafeGuessKindToResource(obj.GetObjectKind().GroupVersionKind())
+		informer = mc.dynamicInformerFactory.ForResource(gvr)
 	}
-	// TODO: better GVR handling
-	gvr, _ := meta.UnsafeGuessKindToResource(obj.GetObjectKind().GroupVersionKind())
-	informer, err := mc.informerFactory.ForResource(gvr)
-	if err != nil {
-		return fmt.Errorf("failed to get informer: %w", err)
-	}
+
+	// ensure informer cache is synced
 	acc, err := meta.Accessor(obj)
 	if err != nil {
 		return fmt.Errorf("failed to get accessor: %w", err)
@@ -276,7 +312,7 @@ func (m *Mutator) dispatchImpl(p MutationParams, dispatcherFactory func(mCtx *mu
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	mCtx, err := newMutatorContext(ctx)
+	mCtx, err := newMutatorContext(ctx, m.policy)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize mutatorContext: %w", err)
 	}
@@ -309,10 +345,7 @@ func (m *Mutator) dispatchImpl(p MutationParams, dispatcherFactory func(mCtx *mu
 			Version: paramGV.Version,
 			Kind:    m.policy.Spec.ParamKind.Kind,
 		})
-		paramInformer, err := mCtx.informerFactory.ForResource(paramGVR)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create informer for params: %w", err)
-		}
+		paramInformer := mCtx.dynamicInformerFactory.ForResource(paramGVR)
 		hook.ParamInformer = paramInformer
 
 		// TODO: Configure this correctly
@@ -328,8 +361,10 @@ func (m *Mutator) dispatchImpl(p MutationParams, dispatcherFactory func(mCtx *mu
 	}
 
 	// Start informers
-	mCtx.informerFactory.WaitForCacheSync(ctx.Done())
-	mCtx.informerFactory.Start(ctx.Done())
+	mCtx.namespaceInformerFactory.WaitForCacheSync(ctx.Done())
+	mCtx.namespaceInformerFactory.Start(ctx.Done())
+	mCtx.dynamicInformerFactory.WaitForCacheSync(ctx.Done())
+	mCtx.dynamicInformerFactory.Start(ctx.Done())
 
 	objs := []runtime.Object{}
 	if p.ParamObj != nil {
