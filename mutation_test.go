@@ -21,7 +21,6 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	v1 "k8s.io/api/admissionregistration/v1"
-	"k8s.io/api/admissionregistration/v1beta1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -30,19 +29,19 @@ import (
 	"k8s.io/utils/ptr"
 )
 
-func simpleMutatingPolicyAndBinding() (*v1beta1.MutatingAdmissionPolicy, *v1beta1.MutatingAdmissionPolicyBinding) {
-	mut := &v1beta1.MutatingAdmissionPolicy{
+func simpleMutatingPolicyAndBinding() (*v1.MutatingAdmissionPolicy, *v1.MutatingAdmissionPolicyBinding) {
+	mut := &v1.MutatingAdmissionPolicy{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "simplePolicy",
 		},
-		Spec: v1beta1.MutatingAdmissionPolicySpec{
-			FailurePolicy:      ptr.To(v1beta1.Fail),
-			ReinvocationPolicy: v1beta1.IfNeededReinvocationPolicy,
-			MatchConstraints: &v1beta1.MatchResources{
+		Spec: v1.MutatingAdmissionPolicySpec{
+			FailurePolicy:      ptr.To(v1.Fail),
+			ReinvocationPolicy: v1.IfNeededReinvocationPolicy,
+			MatchConstraints: &v1.MatchResources{
 				NamespaceSelector: &metav1.LabelSelector{},
 				ObjectSelector:    &metav1.LabelSelector{},
-				MatchPolicy:       ptr.To(v1beta1.Equivalent),
-				ResourceRules: []v1beta1.NamedRuleWithOperations{
+				MatchPolicy:       ptr.To(v1.Equivalent),
+				ResourceRules: []v1.NamedRuleWithOperations{
 					{
 						RuleWithOperations: v1.RuleWithOperations{
 							Rule: v1.Rule{
@@ -55,10 +54,10 @@ func simpleMutatingPolicyAndBinding() (*v1beta1.MutatingAdmissionPolicy, *v1beta
 					},
 				},
 			},
-			Mutations: []v1beta1.Mutation{
+			Mutations: []v1.Mutation{
 				{
-					PatchType: v1beta1.PatchTypeApplyConfiguration,
-					ApplyConfiguration: &v1beta1.ApplyConfiguration{
+					PatchType: v1.PatchTypeApplyConfiguration,
+					ApplyConfiguration: &v1.ApplyConfiguration{
 						Expression: `
 							Object{
 								metadata: Object.metadata{
@@ -71,22 +70,22 @@ func simpleMutatingPolicyAndBinding() (*v1beta1.MutatingAdmissionPolicy, *v1beta
 			},
 		},
 	}
-	mut.GetObjectKind().SetGroupVersionKind(v1beta1.SchemeGroupVersion.WithKind("MutatingAdmissionPolicy"))
+	mut.GetObjectKind().SetGroupVersionKind(v1.SchemeGroupVersion.WithKind("MutatingAdmissionPolicy"))
 
-	binding := &v1beta1.MutatingAdmissionPolicyBinding{
+	binding := &v1.MutatingAdmissionPolicyBinding{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "simplePolicyBinding",
 		},
-		Spec: v1beta1.MutatingAdmissionPolicyBindingSpec{
+		Spec: v1.MutatingAdmissionPolicyBindingSpec{
 			PolicyName: mut.Name,
-			MatchResources: &v1beta1.MatchResources{
-				MatchPolicy:       ptr.To(v1beta1.Equivalent),
+			MatchResources: &v1.MatchResources{
+				MatchPolicy:       ptr.To(v1.Equivalent),
 				ObjectSelector:    &metav1.LabelSelector{},
 				NamespaceSelector: &metav1.LabelSelector{},
 			},
 		},
 	}
-	binding.GetObjectKind().SetGroupVersionKind(v1beta1.SchemeGroupVersion.WithKind("MutatingAdmissionPolicyBinding"))
+	binding.GetObjectKind().SetGroupVersionKind(v1.SchemeGroupVersion.WithKind("MutatingAdmissionPolicyBinding"))
 
 	return mut, binding
 }
@@ -185,13 +184,13 @@ func TestMutator_Mutate_SimplePolicy_WithVariable(t *testing.T) {
 	}
 
 	policy, _ := simpleMutatingPolicyAndBinding()
-	policy.Spec.Variables = []v1beta1.Variable{
+	policy.Spec.Variables = []v1.Variable{
 		{Name: "envValue", Expression: "has(object.metadata.name) ? object.metadata.name+\"-mutated\" : \"unmutated\""},
 	}
-	policy.Spec.Mutations = []v1beta1.Mutation{
+	policy.Spec.Mutations = []v1.Mutation{
 		{
-			PatchType: v1beta1.PatchTypeApplyConfiguration,
-			ApplyConfiguration: &v1beta1.ApplyConfiguration{
+			PatchType: v1.PatchTypeApplyConfiguration,
+			ApplyConfiguration: &v1.ApplyConfiguration{
 				Expression: `
 				Object{
 					metadata: Object.metadata{
@@ -256,14 +255,14 @@ func TestMutator_Mutate_SimplePolicy_WithParam(t *testing.T) {
 	}
 
 	policy, _ := simpleMutatingPolicyAndBinding()
-	policy.Spec.ParamKind = &v1beta1.ParamKind{
+	policy.Spec.ParamKind = &v1.ParamKind{
 		APIVersion: "v1",
 		Kind:       "ConfigMap",
 	}
-	policy.Spec.Mutations = []v1beta1.Mutation{
+	policy.Spec.Mutations = []v1.Mutation{
 		{
-			PatchType: v1beta1.PatchTypeApplyConfiguration,
-			ApplyConfiguration: &v1beta1.ApplyConfiguration{
+			PatchType: v1.PatchTypeApplyConfiguration,
+			ApplyConfiguration: &v1.ApplyConfiguration{
 				Expression: `
 				Object{
 					metadata: Object.metadata{
@@ -317,10 +316,10 @@ func TestMutator_Mutate_SimplePolicy_WithUserInfo(t *testing.T) {
 	}
 
 	policy, _ := simpleMutatingPolicyAndBinding()
-	policy.Spec.Mutations = []v1beta1.Mutation{
+	policy.Spec.Mutations = []v1.Mutation{
 		{
-			PatchType: v1beta1.PatchTypeApplyConfiguration,
-			ApplyConfiguration: &v1beta1.ApplyConfiguration{
+			PatchType: v1.PatchTypeApplyConfiguration,
+			ApplyConfiguration: &v1.ApplyConfiguration{
 				Expression: `
 				Object{
 					metadata: Object.metadata{
