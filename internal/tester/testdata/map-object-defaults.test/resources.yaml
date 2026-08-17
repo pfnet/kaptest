@@ -1,0 +1,50 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: base
+  namespace: default
+  labels:
+    app: ok-pod
+spec:
+  containers:
+  - name: nginx
+    image: nginx
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: add-label-mutated
+  namespace: default
+  labels:
+    app: ok-pod
+    environment: "test"
+spec:
+  containers:
+  - name: nginx
+    image: nginx
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: set-restart-policy-mutated
+  namespace: default
+  labels:
+    app: ok-pod
+spec:
+  containers:
+  - name: nginx
+    image: nginx
+  restartPolicy: Never
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: set-scheduler-name-mutated
+  namespace: default
+  labels:
+    app: ok-pod
+spec:
+  containers:
+  - name: nginx
+    image: nginx
+  schedulerName: "custom-scheduler"

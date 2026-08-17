@@ -319,6 +319,14 @@ func newValidationParams(vap *v1.ValidatingAdmissionPolicy, tc VAPTestCase, load
 	}, nil
 }
 
+var objectScheme = func() *runtime.Scheme {
+	scheme := runtime.NewScheme()
+	if err := clientgoscheme.AddToScheme(scheme); err != nil {
+		panic(fmt.Errorf("failed to register scheme: %w", err))
+	}
+	return scheme
+}()
+
 func newMutationParams(mp *v1.MutatingAdmissionPolicy, tc MAPTestCase, loader *ResourceLoader) (kaptest.MutationParams, runtime.Object, []error) {
 	var errs []error
 	var err error
@@ -385,6 +393,13 @@ func newMutationParams(mp *v1.MutatingAdmissionPolicy, tc MAPTestCase, loader *R
 
 	if len(errs) > 0 {
 		return kaptest.MutationParams{}, nil, errs
+	}
+
+	// The mutated object is defaulted after the patch applied.
+	// https://github.com/kubernetes/apiserver/blob/v0.36.3/pkg/admission/plugin/policy/mutating/dispatcher.go#L274
+	// Apply the same defaulting to the expected object so that the results can be compared correctly.
+	if typedObjs[3] != nil {
+		objectScheme.Default(typedObjs[3])
 	}
 
 	param := kaptest.MutationParams{
@@ -465,14 +480,8 @@ func getNamespaceName(obj, oldObj *unstructured.Unstructured) (string, error) {
 }
 
 func convertToTyped(obj *unstructured.Unstructured) (runtime.Object, error) {
-	scheme := runtime.NewScheme()
-	err := clientgoscheme.AddToScheme(scheme)
-	if err != nil {
-		return nil, fmt.Errorf("failed to register scheme: %w", err)
-	}
-
 	gvk := obj.GroupVersionKind()
-	newTypedObject, err := scheme.New(gvk)
+	newTypedObject, err := objectScheme.New(gvk)
 	if err != nil {
 		return nil, fmt.Errorf("GVK %s is not registered in the scheme: %w", gvk, err)
 	}
