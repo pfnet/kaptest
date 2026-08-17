@@ -1,0 +1,40 @@
+version: v1alpha1
+policies:
+- ../map-object-defaults.yaml
+resources:
+- resources.yaml
+mapTestSuites:
+- policy: pod-add-label
+  tests:
+  - object:
+      kind: Pod
+      name: base
+    expect: mutate
+    expectObject:
+      kind: Pod
+      name: add-label-mutated
+- policy: pod-set-restart-policy
+  tests:
+  - object:
+      kind: Pod
+      name: base
+    expect: mutate
+    expectObject:
+      kind: Pod
+      name: set-restart-policy-mutated
+  - object:
+      kind: Pod
+      name: set-restart-policy-mutated
+    expect: mutate
+    expectObject:
+      kind: Pod
+      name: set-restart-policy-mutated
+- policy: pod-set-scheduler-name
+  tests:
+  - object:
+      kind: Pod
+      name: base
+    expect: mutate
+    expectObject:
+      kind: Pod
+      name: set-scheduler-name-mutated
