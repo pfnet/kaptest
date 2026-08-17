@@ -74,7 +74,7 @@ func NewValidator(policy *v1.ValidatingAdmissionPolicy) *Validator {
 	return &Validator{validator: v, policy: policy, matcher: m}
 }
 
-// Original: https://github.com/kubernetes/apiserver/blob/v0.35.3/pkg/admission/plugin/policy/validating/plugin.go
+// Original: https://github.com/kubernetes/apiserver/blob/v0.36.3/pkg/admission/plugin/policy/validating/plugin.go
 func compilePolicy(policy *v1.ValidatingAdmissionPolicy) (validating.Validator, matchconditions.Matcher) {
 	hasParam := policy.Spec.ParamKind != nil
 	optionalVars := cel.OptionalVariableDeclarations{HasParams: hasParam, HasAuthorizer: true}
@@ -82,13 +82,12 @@ func compilePolicy(policy *v1.ValidatingAdmissionPolicy) (validating.Validator, 
 	failurePolicy := policy.Spec.FailurePolicy
 	var matcher matchconditions.Matcher = nil
 	matchConditions := policy.Spec.MatchConditions
-	var compositionEnvTemplate *cel.CompositionEnv
-	// https://github.com/kubernetes/apiserver/blob/v0.35.3/pkg/admission/plugin/policy/validating/plugin.go#L51
-	compositionEnvTemplate, err := cel.NewCompositionEnv(cel.VariablesTypeName, environment.MustBaseEnvSet(environment.DefaultCompatibilityVersion()))
+	// https://github.com/kubernetes/apiserver/blob/v0.36.3/pkg/admission/plugin/policy/validating/plugin.go#L54
+	compositionEnvTemplate := environment.MustBaseEnvSet(environment.DefaultCompatibilityVersion())
+	filterCompiler, err := cel.NewCompositedCompiler(compositionEnvTemplate)
 	if err != nil {
-		panic(err)
+		return validating.NewValidator(nil, nil, nil, nil, failurePolicy, err), nil
 	}
-	filterCompiler := cel.NewCompositedCompilerFromTemplate(compositionEnvTemplate)
 	filterCompiler.CompileAndStoreVariables(convertv1beta1Variables(policy.Spec.Variables), optionalVars, environment.StoredExpressions)
 
 	if len(matchConditions) > 0 {
@@ -104,6 +103,7 @@ func compilePolicy(policy *v1.ValidatingAdmissionPolicy) (validating.Validator, 
 		filterCompiler.CompileCondition(convertv1AuditAnnotations(policy.Spec.AuditAnnotations), optionalVars, environment.StoredExpressions),
 		filterCompiler.CompileCondition(convertv1MessageExpressions(policy.Spec.Validations), expressionOptionalVars, environment.StoredExpressions),
 		failurePolicy,
+		nil,
 	)
 
 	return res, matcher

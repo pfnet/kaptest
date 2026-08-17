@@ -22,7 +22,6 @@ import (
 	"time"
 
 	v1 "k8s.io/api/admissionregistration/v1"
-	"k8s.io/api/admissionregistration/v1beta1"
 	appsv1 "k8s.io/api/apps/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -36,6 +35,7 @@ import (
 	"k8s.io/apiserver/pkg/admission/plugin/policy/matching"
 	"k8s.io/apiserver/pkg/admission/plugin/policy/mutating"
 	"k8s.io/apiserver/pkg/admission/plugin/policy/mutating/patch"
+	"k8s.io/apiserver/pkg/admission/plugin/policy/validating"
 	webhookgeneric "k8s.io/apiserver/pkg/admission/plugin/webhook/generic"
 	"k8s.io/apiserver/pkg/admission/plugin/webhook/matchconditions"
 	"k8s.io/apiserver/pkg/authorization/authorizer"
@@ -54,7 +54,7 @@ type MutatorInterface interface {
 }
 
 type Mutator struct {
-	policy    *v1beta1.MutatingAdmissionPolicy
+	policy    *v1.MutatingAdmissionPolicy
 	evaluator mutating.PolicyEvaluator
 }
 
@@ -96,7 +96,7 @@ func (p MutationParams) VersionedAttributes() (*admission.VersionedAttributes, e
 	}, nil
 }
 
-func NewMutator(policy *v1beta1.MutatingAdmissionPolicy) (*Mutator, error) {
+func NewMutator(policy *v1.MutatingAdmissionPolicy) (*Mutator, error) {
 	evaluator := compileMutatitionAddmissionPolicy(policy)
 	if evaluator.Error != nil {
 		return nil, evaluator.Error
@@ -281,11 +281,11 @@ func (m *Mutator) dispatchImpl(p MutationParams, dispatcherFactory func(mCtx *mu
 		return nil, fmt.Errorf("failed to initialize mutatorContext: %w", err)
 	}
 
-	binding := &v1beta1.MutatingAdmissionPolicyBinding{
-		Spec: v1beta1.MutatingAdmissionPolicyBindingSpec{
-			ParamRef: &v1beta1.ParamRef{},
-			MatchResources: &v1beta1.MatchResources{
-				MatchPolicy:       ptr.To(v1beta1.Equivalent),
+	binding := &v1.MutatingAdmissionPolicyBinding{
+		Spec: v1.MutatingAdmissionPolicyBindingSpec{
+			ParamRef: &v1.ParamRef{},
+			MatchResources: &v1.MatchResources{
+				MatchPolicy:       ptr.To(v1.Equivalent),
 				ObjectSelector:    &metav1.LabelSelector{},
 				NamespaceSelector: &metav1.LabelSelector{},
 			},
@@ -376,7 +376,7 @@ func (n namespaceParamScope) Name() meta.RESTScopeName {
 
 var _ meta.RESTScope = namespaceParamScope{}
 
-// Original: https://github.com/kubernetes/apiserver/blob/v0.35.3/pkg/admission/plugin/policy/mutating/compilation.go
+// Original: https://github.com/kubernetes/apiserver/blob/v0.36.3/pkg/admission/plugin/policy/mutating/compilation.go
 func compileMutatitionAddmissionPolicy(policy *mutating.Policy) mutating.PolicyEvaluator {
 	opts := plugincel.OptionalVariableDeclarations{HasParams: policy.Spec.ParamKind != nil, HasAuthorizer: true}
 	compiler, err := plugincel.NewCompositedCompiler(environment.MustBaseEnvSet(environment.DefaultCompatibilityVersion()))
@@ -388,7 +388,7 @@ func compileMutatitionAddmissionPolicy(policy *mutating.Policy) mutating.PolicyE
 	}
 
 	// Compile and store variables
-	compiler.CompileAndStoreVariables(convertv1alpha1Variables(policy.Spec.Variables), opts, environment.StoredExpressions)
+	compiler.CompileAndStoreVariables(convertV1Variables(policy.Spec.Variables), opts, environment.StoredExpressions)
 
 	// Compile matchers
 	var matcher matchconditions.Matcher = nil
@@ -398,7 +398,7 @@ func compileMutatitionAddmissionPolicy(policy *mutating.Policy) mutating.PolicyE
 		for i := range matchConditions {
 			matchExpressionAccessors[i] = (*matchconditions.MatchCondition)(&matchConditions[i])
 		}
-		matcher = matchconditions.NewMatcher(compiler.CompileCondition(matchExpressionAccessors, opts, environment.StoredExpressions), toV1FailurePolicy(policy.Spec.FailurePolicy), "policy", "validate", policy.Name)
+		matcher = matchconditions.NewMatcher(compiler.CompileCondition(matchExpressionAccessors, opts, environment.StoredExpressions), policy.Spec.FailurePolicy, "policy", "validate", policy.Name)
 	}
 
 	// Compiler patchers
@@ -407,13 +407,13 @@ func compileMutatitionAddmissionPolicy(policy *mutating.Policy) mutating.PolicyE
 	patchOptions.HasPatchTypes = true
 	for _, m := range policy.Spec.Mutations {
 		switch m.PatchType {
-		case v1beta1.PatchTypeJSONPatch:
+		case v1.PatchTypeJSONPatch:
 			if m.JSONPatch != nil {
 				accessor := &patch.JSONPatchCondition{Expression: m.JSONPatch.Expression}
 				compileResult := compiler.CompileMutatingEvaluator(accessor, patchOptions, environment.StoredExpressions)
 				patchers = append(patchers, patch.NewJSONPatcher(compileResult))
 			}
-		case v1beta1.PatchTypeApplyConfiguration:
+		case v1.PatchTypeApplyConfiguration:
 			if m.ApplyConfiguration != nil {
 				accessor := &patch.ApplyConfigurationCondition{Expression: m.ApplyConfiguration.Expression}
 				compileResult := compiler.CompileMutatingEvaluator(accessor, patchOptions, environment.StoredExpressions)
@@ -422,23 +422,20 @@ func compileMutatitionAddmissionPolicy(policy *mutating.Policy) mutating.PolicyE
 		}
 	}
 
-	return mutating.PolicyEvaluator{Matcher: matcher, Mutators: patchers, CompositionEnv: compiler.CompositionEnv}
+	return mutating.PolicyEvaluator{Matcher: matcher, Mutators: patchers, CompositedCompiler: compiler}
 }
 
-// Original: https://github.com/kubernetes/apiserver/blob/v0.35.3/pkg/admission/plugin/policy/mutating/plugin.go#L145-L151
-func convertv1alpha1Variables(variables []v1beta1.Variable) []plugincel.NamedExpressionAccessor {
-	namedExpressions := make([]plugincel.NamedExpressionAccessor, len(variables))
-	for i, variable := range variables {
-		namedExpressions[i] = &mutating.Variable{Name: variable.Name, Expression: variable.Expression}
-	}
-	return namedExpressions
-}
-
-// Original: https://github.com/kubernetes/apiserver/blob/v0.35.3/pkg/admission/plugin/policy/mutating/accessor.go#L69-L75
-func toV1FailurePolicy(failurePolicy *v1beta1.FailurePolicyType) *v1.FailurePolicyType {
-	if failurePolicy == nil {
+// Original: https://github.com/kubernetes/apiserver/blob/v0.36.3/pkg/admission/plugin/policy/mutating/compilation.go#L84-L96
+func convertV1Variables(variables []v1.Variable) []plugincel.NamedExpressionAccessor {
+	if variables == nil {
 		return nil
 	}
-	fp := v1.FailurePolicyType(*failurePolicy)
-	return &fp
+	res := make([]plugincel.NamedExpressionAccessor, len(variables))
+	for i, v := range variables {
+		res[i] = &validating.Variable{
+			Name:       v.Name,
+			Expression: v.Expression,
+		}
+	}
+	return res
 }
