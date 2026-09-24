@@ -17,6 +17,7 @@ limitations under the License.
 package crd
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -118,7 +119,11 @@ func openSource(source string) (io.ReadCloser, error) {
 			return nil
 		},
 	}
-	resp, err := client.Get(source)
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, source, nil)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := client.Do(req)
 	if err != nil {
 		return nil, err
 	}
