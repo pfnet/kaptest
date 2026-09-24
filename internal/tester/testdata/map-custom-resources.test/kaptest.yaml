@@ -1,0 +1,29 @@
+version: v1alpha1
+crds:
+- https://raw.githubusercontent.com/projectcontour/contour/v1.33.0/examples/contour/01-crds.yaml
+policies:
+- ../map-custom-resources.yaml
+resources:
+- resources.yaml
+schemaLocations:
+- "https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json"
+mapTestSuites:
+- policy: httpproxy-update
+  tests:
+  - object:
+      kind: HTTPProxy
+      name: base
+    expect: mutate
+    expectObject:
+      kind: HTTPProxy
+      name: updated
+  - object:
+      kind: HTTPProxy
+      name: base
+    oldObject:
+      kind: HTTPProxy
+      name: base
+    expect: mutate
+    expectObject:
+      kind: HTTPProxy
+      name: updated

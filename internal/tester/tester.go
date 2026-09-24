@@ -24,6 +24,7 @@ import (
 	"path/filepath"
 
 	"github.com/pfnet/kaptest"
+	"github.com/pfnet/kaptest/internal/crd"
 	"github.com/pfnet/kaptest/internal/util"
 	"github.com/yannh/kubeconform/pkg/validator"
 	"gopkg.in/yaml.v2"
@@ -147,6 +148,12 @@ func runEach(cfg TesterCmdConfig, manifestPath string) testResultSummary {
 		}
 	}
 
+	// CRD paths are relative to the test manifest, just like resource paths.
+	crds, err := crd.Load(manifests.CRDs)
+	if err != nil {
+		return testResultSummary{manifestPath: manifestPath, fail: 1, message: fmt.Sprintf("FAIL: %v", err)}
+	}
+
 	// Load Policies and other resources
 	loader := NewResourceLoader(manifestValidator)
 	loader.LoadPolicies(manifests.Policies)
@@ -217,7 +224,7 @@ func runEach(cfg TesterCmdConfig, manifestPath string) testResultSummary {
 			continue
 		}
 
-		mutator, err := kaptest.NewMutator(policy)
+		mutator, err := kaptest.NewMutator(policy, crds...)
 		if err != nil {
 			panic(err)
 		}
@@ -377,9 +384,7 @@ func newMutationParams(mp *v1.MutatingAdmissionPolicy, tc MAPTestCase, loader *R
 
 	userInfo := NewK8sUserInfo(tc.UserInfo)
 
-	// We need to ensure the object follows scheme
-	// by converting unstructured object into typed object
-	// TODO: support CRD
+	// Preserve typed built-in objects for defaulting; custom resources remain unstructured.
 	objs := []*unstructured.Unstructured{obj, oldObj, paramObj, expectObj}
 	typedObjs := []runtime.Object{nil, nil, nil, nil}
 	for idx, o := range objs {
@@ -483,6 +488,11 @@ func getNamespaceName(obj, oldObj *unstructured.Unstructured) (string, error) {
 func convertToTyped(obj *unstructured.Unstructured) (runtime.Object, error) {
 	gvk := obj.GroupVersionKind()
 	newTypedObject, err := objectScheme.New(gvk)
+	if runtime.IsNotRegisteredError(err) {
+		// Custom resources have no Go type registered in the scheme, so keep them
+		// unstructured and copy them to avoid modifying the loader's shared objects.
+		return obj.DeepCopy(), nil
+	}
 	if err != nil {
 		return nil, fmt.Errorf("GVK %s is not registered in the scheme: %w", gvk, err)
 	}

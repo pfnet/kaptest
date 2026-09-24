@@ -103,6 +103,9 @@ resources:
 schemaLocations: # Optional: For Custom Resources
 - <url/to/crd/schema.json>
 - <path/to/crd/schema.json>
+crds: # Required for MAP with Cusotm Resources: HTTPS URLs or local paths for CRDs
+- <url/to/crd/crd.yaml>
+- <path/to/crd.yaml>
 skipSchemaValidation: <true|false> # Optional: skip resource manifest validation for this test manifest file
 vapTestSuites:
 - policy: <name> # ValidatingAdmissionPolicy's name
