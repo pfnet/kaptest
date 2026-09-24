@@ -48,3 +48,14 @@ mapTestSuites:
       kind: Deployment
       name: base
     expect: error
+- policy: update-main-container
+  tests:
+  # Mutating the list of containers in the Deployment.
+  # sidecar container should remain unchanged.
+  - object:
+      kind: Deployment
+      name: two-containers
+    expect: mutate
+    expectObject:
+      kind: Deployment
+      name: main-image-mutated

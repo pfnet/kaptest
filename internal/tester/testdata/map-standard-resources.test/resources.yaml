@@ -61,3 +61,43 @@ spec:
       containers:
       - name: nginx
         image: nginx
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: two-containers
+  namespace: default
+spec:
+  selector:
+    matchLabels:
+      app: list-merge
+  template:
+    metadata:
+      labels:
+        app: list-merge
+    spec:
+      containers:
+      - name: main
+        image: main:old
+      - name: sidecar
+        image: sidecar:old
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: main-image-mutated
+  namespace: default
+spec:
+  selector:
+    matchLabels:
+      app: list-merge
+  template:
+    metadata:
+      labels:
+        app: list-merge
+    spec:
+      containers:
+      - name: main
+        image: main:new
+      - name: sidecar
+        image: sidecar:old

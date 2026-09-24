@@ -16,11 +16,7 @@ limitations under the License.
 
 package tester
 
-import (
-	"os"
-	"path/filepath"
-	"testing"
-)
+import "testing"
 
 func TestRun(t *testing.T) {
 	t.Parallel()
@@ -39,6 +35,7 @@ func TestRun(t *testing.T) {
 				"./testdata/vap-with-namespaces.test/kaptest.yaml",
 				"./testdata/vap-with-userinfo.test/kaptest.yaml",
 				"./testdata/map-standard-resources.test/kaptest.yaml",
+				"./testdata/map-custom-resources.test/kaptest.yaml",
 				"./testdata/map-with-params.test/kaptest.yaml",
 				"./testdata/map-with-namespaces.test/kaptest.yaml",
 				"./testdata/map-with-userinfo.test/kaptest.yaml",
@@ -54,6 +51,12 @@ func TestRun(t *testing.T) {
 			args:              []string{"./testdata/not-found.yaml"},
 			wantErr:           ErrTestFail,
 			validateManifests: true,
+		},
+		{
+			name:              "err: CRD file not found",
+			args:              []string{"./testdata/map-custom-resources.test/missing-crd-test.yaml"},
+			wantErr:           ErrTestFail,
+			validateManifests: false,
 		},
 		{
 			name:              "err: unmarshal error",
@@ -116,8 +119,11 @@ func TestRun(t *testing.T) {
 			validateManifests: true,
 		},
 		{
-			name:              "err: object not exist (custom resource)",
-			args:              []string{"./testdata/vap-custom-resources.test/invalid-no-obj.yaml"},
+			name: "err: object not exist (custom resource)",
+			args: []string{
+				"./testdata/vap-custom-resources.test/invalid-no-obj.yaml",
+				"./testdata/map-custom-resources.test/invalid-no-obj.yaml",
+			},
 			wantErr:           ErrTestFail,
 			validateManifests: true,
 		},
@@ -169,6 +175,7 @@ func TestRun(t *testing.T) {
 			args: []string{
 				"./testdata/vap-standard-resources.test/skip-schema-validation.yaml",
 				"./testdata/vap-custom-resources.test/skip-schema-validation.yaml",
+				"./testdata/map-custom-resources.test/skip-schema-validation.yaml",
 			},
 			wantErr:           nil,
 			validateManifests: true,
@@ -182,12 +189,7 @@ func TestRun(t *testing.T) {
 			validateManifests: true,
 		},
 	}
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		t.Fatalf("failed to get homedir: %v", err)
-	}
-	schemaCache := filepath.Join(homeDir, ".cache/kaptest/schema-test")
-	defer os.RemoveAll(schemaCache)
+	schemaCache := t.TempDir()
 
 	for _, tt := range tests {
 		cfg := TesterCmdConfig{

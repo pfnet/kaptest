@@ -21,8 +21,10 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/pfnet/kaptest/internal/crd"
 	v1 "k8s.io/api/admissionregistration/v1"
 	appsv1 "k8s.io/api/apps/v1"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -54,8 +56,9 @@ type MutatorInterface interface {
 }
 
 type Mutator struct {
-	policy    *v1.MutatingAdmissionPolicy
-	evaluator mutating.PolicyEvaluator
+	policy      *v1.MutatingAdmissionPolicy
+	evaluator   mutating.PolicyEvaluator
+	customTypes *crd.Types
 }
 
 var _ MutatorInterface = &Mutator{}
@@ -74,20 +77,24 @@ func (p MutationParams) GetGVK() schema.GroupVersionKind {
 	}
 }
 
-func (p MutationParams) VersionedAttributes() (*admission.VersionedAttributes, error) {
+func (m *Mutator) versionedAttributes(p MutationParams) (*admission.VersionedAttributes, error) {
+	gvk := p.GetGVK()
+	gvr, ok := m.customTypes.Resources[gvk]
+	if !ok {
+		if !clientgoscheme.Scheme.Recognizes(gvk) {
+			return nil, fmt.Errorf("unrecognized GVK %s: not registered in the built-in scheme or supplied CRDs", gvk)
+		}
+		gvr, _ = meta.UnsafeGuessKindToResource(gvk)
+	}
+
 	metaAcc, err := meta.Accessor(p.Object)
 	if err != nil {
 		return nil, fmt.Errorf("failed to crate meta.Accessor: %w", err)
 	}
 
-	gvk := p.Object.GetObjectKind().GroupVersionKind()
-
-	// TODO: fix this
-	gvr, _ := meta.UnsafeGuessKindToResource(gvk)
-
 	// TODO: fill subResources
 	// TODO: fill operationOptions
-	attrs := admission.NewAttributesRecord(p.Object, p.OldObject, p.GetGVK(), metaAcc.GetNamespace(), metaAcc.GetName(), gvr, "", p.Operation(), nil, true, p.UserInfo)
+	attrs := admission.NewAttributesRecord(p.Object, p.OldObject, gvk, metaAcc.GetNamespace(), metaAcc.GetName(), gvr, "", p.Operation(), nil, true, p.UserInfo)
 	return &admission.VersionedAttributes{
 		Attributes:         attrs,
 		VersionedKind:      gvk,
@@ -96,15 +103,22 @@ func (p MutationParams) VersionedAttributes() (*admission.VersionedAttributes, e
 	}, nil
 }
 
-func NewMutator(policy *v1.MutatingAdmissionPolicy) (*Mutator, error) {
+// NewMutator creates a policy evaluator with optional CRD definitions for custom mutation targets.
+// CRD schema defaults are not applied.
+func NewMutator(policy *v1.MutatingAdmissionPolicy, crds ...*apiextensionsv1.CustomResourceDefinition) (*Mutator, error) {
+	customTypes, err := crd.NewTypes(crds)
+	if err != nil {
+		return nil, err
+	}
 	evaluator := compileMutatitionAddmissionPolicy(policy)
 	if evaluator.Error != nil {
 		return nil, evaluator.Error
 	}
 
 	return &Mutator{
-		policy:    policy,
-		evaluator: evaluator,
+		policy:      policy,
+		evaluator:   evaluator,
+		customTypes: customTypes,
 	}, nil
 }
 
@@ -117,10 +131,9 @@ type mutatorContext struct {
 	informerFactory informers.SharedInformerFactory
 }
 
-func newMutatorContext(ctx context.Context) (*mutatorContext, error) {
+func newMutatorContext(ctx context.Context, m *Mutator) (*mutatorContext, error) {
 	// Prepare TypeConvertManager
-	// TODO: support CRDs
-	tcm := patch.NewTypeConverterManager(nil, openapitest.NewEmbeddedFileClient())
+	tcm := patch.NewTypeConverterManager(m.customTypes.Converter, openapitest.NewEmbeddedFileClient())
 	go tcm.Run(ctx)
 
 	err := wait.PollUntilContextTimeout(ctx, 100*time.Millisecond, time.Second, false, func(context.Context) (done bool, err error) {
@@ -206,8 +219,8 @@ type dispatchRecoder struct {
 	matchResults []MatchResult
 }
 
-func newDispatchRecoder(p MutationParams) (*dispatchRecoder, error) {
-	attrs, err := p.VersionedAttributes()
+func (m *Mutator) newDispatchRecoder(p MutationParams) (*dispatchRecoder, error) {
+	attrs, err := m.versionedAttributes(p)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get versionedAttributes: %w", err)
 	}
@@ -247,7 +260,7 @@ func (d *dispatchRecoder) dispatchInvocations(
 
 // EvalMatchCondition returns matched param objects.
 func (m *Mutator) EvalMatchCondition(p MutationParams) ([]MatchResult, error) {
-	recoder, err := newDispatchRecoder(p)
+	recoder, err := m.newDispatchRecoder(p)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create dispatchRecorder: %w", err)
 	}
@@ -276,7 +289,7 @@ func (m *Mutator) dispatchImpl(p MutationParams, dispatcherFactory func(mCtx *mu
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	mCtx, err := newMutatorContext(ctx)
+	mCtx, err := newMutatorContext(ctx, m)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize mutatorContext: %w", err)
 	}
@@ -354,7 +367,7 @@ func (m *Mutator) dispatchImpl(p MutationParams, dispatcherFactory func(mCtx *mu
 		return nil, fmt.Errorf("failed to start dispatcher: %w", err)
 	}
 
-	attrs, err := p.VersionedAttributes()
+	attrs, err := m.versionedAttributes(p)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get VersionedAttributes for object: %w", err)
 	}
