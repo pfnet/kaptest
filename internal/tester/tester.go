@@ -355,6 +355,7 @@ func newMutationParams(mp *v1.MutatingAdmissionPolicy, tc MAPTestCase, loader *R
 			if expectObj == nil {
 				errs = append(errs, fmt.Errorf("expectObject must be given when mutate expected"))
 			} else if !tc.DisableNameOverwrite {
+				expectObj = expectObj.DeepCopy()
 				expectObj.SetName(obj.GetName())
 			}
 		}
