@@ -146,14 +146,23 @@ func (r *ResourceLoader) LoadResources(paths []string) {
 			continue
 		}
 
-		decoder := kyaml.NewYAMLToJSONDecoder(yamlFile)
+		reader := kyaml.NewYAMLReader(bufio.NewReader(yamlFile))
 		for {
-			var obj map[string]any
-			if err := decoder.Decode(&obj); err != nil {
+			b, err := reader.Read()
+			if err != nil {
 				if errors.Is(err, io.EOF) {
 					break
 				}
 				slog.Warn("failed to decode resource", "error", err)
+				continue
+			}
+			// Preserve numeric values in custom resources.
+			var obj map[string]any
+			if err := kyaml.Unmarshal(b, &obj); err != nil {
+				slog.Warn("failed to decode resource", "error", err)
+				continue
+			}
+			if len(obj) == 0 {
 				continue
 			}
 			unstructuredObj := &unstructured.Unstructured{Object: obj}

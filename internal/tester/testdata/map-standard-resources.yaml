@@ -73,3 +73,35 @@ spec:
             labels: {"value": string(object.spec.nonExistentField)}
           }
         }
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingAdmissionPolicy
+metadata:
+  name: update-main-container
+spec:
+  matchConstraints:
+    resourceRules:
+    - apiGroups: ["apps"]
+      apiVersions: ["v1"]
+      resources: ["deployments"]
+      operations: ["*"]
+  matchConditions:
+  - name: original-image
+    expression: object.spec.template.spec.containers.exists(c, c.name == 'main' && c.image == 'main:old')
+  failurePolicy: Fail
+  reinvocationPolicy: IfNeeded
+  mutations:
+  - patchType: ApplyConfiguration
+    applyConfiguration:
+      expression: >-
+        Object{
+          spec: Object.spec{
+            template: Object.spec.template{
+              spec: Object.spec.template.spec{
+                containers: [Object.spec.template.spec.containers{
+                  name: "main", image: "main:new"
+                }]
+              }
+            }
+          }
+        }

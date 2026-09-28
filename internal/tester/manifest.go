@@ -36,6 +36,7 @@ type TestManifests struct {
 	Policies             []string                  `yaml:"policies,omitempty"`
 	Resources            []string                  `yaml:"resources,omitempty"`
 	SchemaLocations      []string                  `yaml:"schemaLocations,omitempty"` // used for resource manifest validation
+	CRDs                 []string                  `yaml:"crds,omitempty"`            // used for MAP with custom resources
 	SkipSchemaValidation bool                      `yaml:"skipSchemaValidation,omitempty"`
 	VapTestSuites        []TestsForSingleVapPolicy `yaml:"vapTestSuites,omitempty"`
 	MapTestSuites        []TestsForSingleMapPolicy `yaml:"mapTestSuites,omitempty"`
