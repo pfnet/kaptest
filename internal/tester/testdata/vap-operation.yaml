@@ -1,0 +1,22 @@
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: operation-kind
+spec:
+  failurePolicy: Fail
+  matchConstraints:
+    matchPolicy: "Equivalent"
+    namespaceSelector: {}
+    objectSelector: {}
+    resourceRules:
+    - apiGroups: ["apps"]
+      apiVersions: ["v1"]
+      operations: ["CREATE", "UPDATE", "DELETE"]
+      resources: ["deployments"]
+  validations:
+  # The expected operation is derived from which objects are present, so the
+  # fixture fails if CREATE, DELETE, or UPDATE is misclassified as any other.
+  - expression: >-
+      request.operation == (oldObject == null ? "CREATE" : (object == null ? "DELETE" : "UPDATE"))
+      && (request.operation != "UPDATE" || object.spec.replicas == oldObject.spec.replicas)
+    message: "request.operation does not match the objects supplied"

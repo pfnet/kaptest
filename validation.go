@@ -59,10 +59,14 @@ type ValidationParams struct {
 }
 
 func (p ValidationParams) Operation() admission.Operation {
-	if p.Object != nil && p.OldObject != nil {
+	// A typed nil (a nil *Unstructured stored in a runtime.Object) compares
+	// non-nil, which made every CREATE and DELETE look like UPDATE.
+	hasObject := !isNil(p.Object)
+	hasOldObject := !isNil(p.OldObject)
+	if hasObject && hasOldObject {
 		return admission.Update
 	}
-	if p.Object != nil {
+	if hasObject {
 		return admission.Create
 	}
 	return admission.Delete

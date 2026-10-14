@@ -1,0 +1,33 @@
+version: v1alpha1
+policies:
+- ../vap-operation.yaml
+resources:
+- resources.yaml
+vapTestSuites:
+- policy: operation-kind
+  tests:
+  - object:
+      kind: Deployment
+      namespace: default
+      name: example
+    userInfo:
+      name: alice@example.com
+    expect: admit
+  - oldObject:
+      kind: Deployment
+      namespace: default
+      name: example
+    userInfo:
+      name: alice@example.com
+    expect: admit
+  - object:
+      kind: Deployment
+      namespace: default
+      name: example
+    oldObject:
+      kind: Deployment
+      namespace: default
+      name: example
+    userInfo:
+      name: alice@example.com
+    expect: admit

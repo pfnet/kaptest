@@ -317,13 +317,22 @@ func newValidationParams(vap *v1.ValidatingAdmissionPolicy, tc VAPTestCase, load
 		return kaptest.ValidationParams{}, errs
 	}
 
-	return kaptest.ValidationParams{
-		Object:       obj,
-		OldObject:    oldObj,
-		ParamObj:     paramObj,
+	// Store a true nil interface. Assigning a nil *unstructured.Unstructured
+	// leaves a typed nil, and ValidationParams.Operation then reports UPDATE.
+	params := kaptest.ValidationParams{
 		NamespaceObj: namespaceObj,
 		UserInfo:     &userInfo,
-	}, nil
+	}
+	if obj != nil {
+		params.Object = obj
+	}
+	if oldObj != nil {
+		params.OldObject = oldObj
+	}
+	if paramObj != nil {
+		params.ParamObj = paramObj
+	}
+	return params, nil
 }
 
 var objectScheme = func() *runtime.Scheme {
