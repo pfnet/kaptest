@@ -23,7 +23,9 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/apiserver/pkg/admission/plugin/policy/validating"
 	"k8s.io/apiserver/pkg/authentication/user"
 	"k8s.io/utils/ptr"
@@ -31,6 +33,28 @@ import (
 
 func TestCompilePolicy_NotFail(t *testing.T) {
 	compilePolicy(simplePolicy())
+}
+
+func TestValidationParams_Operation_IgnoresTypedNil(t *testing.T) {
+	var nilObj *unstructured.Unstructured
+	obj := &unstructured.Unstructured{}
+	cases := []struct {
+		name string
+		p    ValidationParams
+		want admission.Operation
+	}{
+		{"create", ValidationParams{Object: obj, OldObject: nilObj}, admission.Create},
+		{"delete", ValidationParams{Object: nilObj, OldObject: obj}, admission.Delete},
+		{"update", ValidationParams{Object: obj, OldObject: obj}, admission.Update},
+		{"unset interfaces", ValidationParams{}, admission.Delete},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.p.Operation(); got != tt.want {
+				t.Errorf("Operation() = %s, want %s", got, tt.want)
+			}
+		})
+	}
 }
 
 func TestValidator_Validate_SimplePolicy(t *testing.T) {

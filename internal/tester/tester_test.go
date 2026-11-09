@@ -34,6 +34,7 @@ func TestRun(t *testing.T) {
 				"./testdata/vap-with-params.test/kaptest.yaml",
 				"./testdata/vap-with-namespaces.test/kaptest.yaml",
 				"./testdata/vap-with-userinfo.test/kaptest.yaml",
+				"./testdata/vap-operation.test/kaptest.yaml",
 				"./testdata/map-standard-resources.test/kaptest.yaml",
 				"./testdata/map-custom-resources.test/kaptest.yaml",
 				"./testdata/map-with-params.test/kaptest.yaml",
