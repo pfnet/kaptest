@@ -281,23 +281,12 @@ func runEach(cfg TesterCmdConfig, manifestPath string) testResultSummary {
 }
 
 func newValidationParams(vap *v1.ValidatingAdmissionPolicy, tc VAPTestCase, loader *ResourceLoader) (kaptest.ValidationParams, []error) {
-	var errs []error
-	var err error
-	var obj, oldObj *unstructured.Unstructured
-	if !tc.Object.IsValid() && !tc.OldObject.IsValid() {
-		errs = append(errs, fmt.Errorf("object or oldObject must be given and valid"))
-	} else {
-		if obj, err = loader.GetResource(tc.Object); err != nil {
-			errs = append(errs, fmt.Errorf("get object: %w", err))
-		}
-		if oldObj, err = loader.GetResource(tc.OldObject); err != nil {
-			errs = append(errs, fmt.Errorf("get oldObject: %w", err))
-		}
-		if obj == nil && oldObj == nil {
-			errs = append(errs, fmt.Errorf("neither object nor oldObject found"))
-		}
+	obj, oldObj, errs := getObjects(loader, tc.Object, tc.OldObject)
+	if len(errs) > 0 {
+		return kaptest.ValidationParams{}, errs
 	}
 
+	var err error
 	var paramObj *unstructured.Unstructured
 	if vap.Spec.ParamKind != nil {
 		paramGVK := schema.FromAPIVersionAndKind(vap.Spec.ParamKind.APIVersion, vap.Spec.ParamKind.Kind)
@@ -344,22 +333,18 @@ var objectScheme = func() *runtime.Scheme {
 }()
 
 func newMutationParams(mp *v1.MutatingAdmissionPolicy, tc MAPTestCase, loader *ResourceLoader) (kaptest.MutationParams, runtime.Object, []error) {
-	var errs []error
-	var err error
-	var obj, oldObj *unstructured.Unstructured
-	if !tc.Object.IsValid() && !tc.OldObject.IsValid() {
-		errs = append(errs, fmt.Errorf("object or oldObject must be given and valid"))
-	} else {
-		if obj, err = loader.GetResource(tc.Object); err != nil {
-			errs = append(errs, fmt.Errorf("get object: %w", err))
-		}
-		if oldObj, err = loader.GetResource(tc.OldObject); err != nil {
-			errs = append(errs, fmt.Errorf("get oldObject: %w", err))
-		}
-		if obj == nil && oldObj == nil {
-			errs = append(errs, fmt.Errorf("neither object nor oldObject found"))
-		}
+	obj, oldObj, errs := getObjects(loader, tc.Object, tc.OldObject)
+	if len(errs) > 0 {
+		return kaptest.MutationParams{}, nil, errs
 	}
+
+	// MAP does not support DELETE
+	// https://github.com/kubernetes/kubernetes/blob/v1.36.3/pkg/apis/admissionregistration/validation/validation.go#L520-L526
+	if oldObj != nil && obj == nil {
+		return kaptest.MutationParams{}, nil, []error{fmt.Errorf("MutatingAdmissionPolicy does not support DELETE")}
+	}
+
+	var err error
 	var expectObj *unstructured.Unstructured
 	if tc.Expect == Mutate { //nolint
 		if !tc.ExpectObject.IsValid() {
@@ -426,6 +411,33 @@ func newMutationParams(mp *v1.MutatingAdmissionPolicy, tc MAPTestCase, loader *R
 	}
 
 	return param, typedObjs[3], nil
+}
+
+// getObjects returns object and oldObject. Each given one must exist in the resources.
+func getObjects(loader *ResourceLoader, object, oldObject NameWithGVK) (obj, oldObj *unstructured.Unstructured, errs []error) {
+	if !object.IsValid() && !oldObject.IsValid() {
+		return nil, nil, []error{fmt.Errorf("object or oldObject must be given and valid")}
+	}
+	var err error
+	if obj, err = getObject(loader, object); err != nil {
+		errs = append(errs, fmt.Errorf("get object: %w", err))
+	}
+	if oldObj, err = getObject(loader, oldObject); err != nil {
+		errs = append(errs, fmt.Errorf("get oldObject: %w", err))
+	}
+	return obj, oldObj, errs
+}
+
+// getObject returns nil if ref is not given, and an error if it is not found.
+func getObject(loader *ResourceLoader, ref NameWithGVK) (*unstructured.Unstructured, error) {
+	if !ref.IsValid() {
+		return nil, nil
+	}
+	obj, err := loader.GetResource(ref)
+	if err == nil && obj == nil {
+		err = fmt.Errorf("%s not found", ref)
+	}
+	return obj, err
 }
 
 func getParamObj(loader *ResourceLoader, paramGVK schema.GroupVersionKind, param NamespacedName) (*unstructured.Unstructured, error) {
