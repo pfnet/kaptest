@@ -195,7 +195,7 @@ You can describe the cases for CREATE, UPDATE, and DELETE operations based on wh
 
 - **CREATE**: Specify only object
 - **UPDATE**: Specify both object and oldObject
-- **DELETE**: Specify only oldObject
+- **DELETE**: Specify only oldObject (only in VAP). MAP does not support DELETE and returns `error` when specified.
 
 ### Evaluation Results
 

@@ -78,6 +78,11 @@ func (p MutationParams) GetGVK() schema.GroupVersionKind {
 }
 
 func (m *Mutator) versionedAttributes(p MutationParams) (*admission.VersionedAttributes, error) {
+	// MAP does not support DELETE
+	// https://github.com/kubernetes/kubernetes/blob/v1.36.3/pkg/apis/admissionregistration/validation/validation.go#L520-L526
+	if p.Operation() == admission.Delete {
+		return nil, fmt.Errorf("MutatingAdmissionPolicy does not support DELETE")
+	}
 	gvk := p.GetGVK()
 	gvr, ok := m.customTypes.Resources[gvk]
 	if !ok {
