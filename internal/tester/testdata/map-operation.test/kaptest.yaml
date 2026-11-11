@@ -1,0 +1,30 @@
+version: v1alpha1
+policies:
+- ../map-operation.yaml
+resources:
+- resources.yaml
+mapTestSuites:
+- policy: operation-kind
+  tests:
+  - object:
+      kind: Deployment
+      name: base
+    expect: mutate
+    expectObject:
+      kind: Deployment
+      name: created
+  - object:
+      kind: Deployment
+      name: base
+    oldObject:
+      kind: Deployment
+      name: base
+    expect: mutate
+    expectObject:
+      kind: Deployment
+      name: updated
+  # MAP does not support DELETE.
+  - oldObject:
+      kind: Deployment
+      name: base
+    expect: error
